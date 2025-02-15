@@ -12,54 +12,51 @@ def extract_data_from_pdf(pdf_file):
     try:
         with pdfplumber.open(pdf_file) as pdf:
             for page in pdf.pages:
+                table = page.extract_table()
                 text = page.extract_text()
-                if not text:
+                
+                if not text and not table:
                     continue  # Lewati halaman kosong
                 
-                lines = text.split('\n')
-
-                def find_value(key_pattern):
-                    for line in lines:
-                        match = re.search(key_pattern, line, re.IGNORECASE)
-                        if match:
-                            return match.group(1).strip()
-                    return ""
-
-                no_fp = find_value(r"No FP[\s:]*(.*)")
-                nama_penjual = find_value(r"Nama Penjual[\s:]*(.*)")
-                nama_pembeli = find_value(r"Nama Pembeli[\s:]*(.*)")
-                barang = find_value(r"Barang[\s:]*(.*)")
-                tanggal_faktur = find_value(r"Tanggal Faktur[\s:]*(.*)")
+                def find_value(key, text):
+                    match = re.search(fr'{key}\s*:?\s*(.*)', text, re.IGNORECASE)
+                    return match.group(1).strip() if match else None
                 
-                harga, qty, total, dpp, ppn = 0, 0, 0, 0, 0
+                no_fp = find_value("Faktur Pajak", text)
+                nama_penjual = find_value("Nama Penjual", text)
+                nama_pembeli = find_value("Nama Pembeli", text)
+                barang = find_value("Deskripsi Barang", text)
+                tanggal_faktur = find_value("Tanggal Faktur", text)
+                
+                harga, qty, total, dpp, ppn = None, None, None, None, None
                 unit = "Unit"
-
-                for line in lines:
-                    harga_match = re.search(r"Rp\s*([\d,.]+)\s*x\s*(\d+)", line)
-                    if harga_match:
-                        try:
-                            harga = int(harga_match.group(1).replace('.', '').replace(',', ''))
-                            qty = int(harga_match.group(2))
-                            total = harga * qty
-                            unit = "Bulan" if "Bulan" in line else "Unit"
-                        except ValueError:
-                            harga, qty, total = 0, 0, 0
-                    
-                    dpp_match = re.search(r"DPP[\s:]*(\d+)", line)
-                    if dpp_match:
-                        try:
-                            dpp = int(dpp_match.group(1).replace('.', '').replace(',', ''))
-                        except ValueError:
-                            dpp = 0
-                    
-                    ppn_match = re.search(r"PPN[\s:]*(\d+)", line)
-                    if ppn_match:
-                        try:
-                            ppn = int(ppn_match.group(1).replace('.', '').replace(',', ''))
-                        except ValueError:
-                            ppn = 0
                 
-                # Pastikan minimal ada beberapa data utama sebelum menambahkan ke list
+                if table:
+                    for row in table:
+                        row_text = ' '.join([cell if cell else '' for cell in row])
+                        if 'Rp' in row_text and 'x' in row_text:
+                            try:
+                                parts = re.findall(r'\d+', row_text.replace('Rp', '').replace(',', ''))
+                                if len(parts) >= 2:
+                                    harga = int(parts[0])
+                                    qty = int(parts[1])
+                                    total = harga * qty
+                                    unit = "Bulan" if "Bulan" in row_text else "Unit"
+                            except Exception:
+                                harga, qty, total = None, None, None
+                        
+                        if "Dasar Pengenaan Pajak" in row_text:
+                            try:
+                                dpp = int(re.findall(r'\d+', row_text.replace(',', ''))[-1])
+                            except Exception:
+                                dpp = None
+                    
+                        if "PPN" in row_text:
+                            try:
+                                ppn = int(re.findall(r'\d+', row_text.replace(',', ''))[-1])
+                            except Exception:
+                                ppn = None
+                
                 if no_fp and nama_penjual and nama_pembeli:
                     data.append([no_fp, nama_penjual, nama_pembeli, barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])
     except Exception as e:
@@ -96,4 +93,4 @@ if uploaded_files:
         
         st.download_button(label="📥 Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
-        st.error("Gagal mengekstrak data. Pastikan format faktur sesuai.")
+        st.error("Gagal mengekstrak data. Pastikan format faktur sesuai atau coba gunakan OCR jika PDF berbentuk gambar.")

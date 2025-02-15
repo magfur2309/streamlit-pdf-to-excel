@@ -9,28 +9,22 @@ def extract_data_from_pdf(pdf_file):
     """
     data = []
     with pdfplumber.open(pdf_file) as pdf:
-        for page_num, page in enumerate(pdf.pages):
+        for page in pdf.pages:
             text = page.extract_text()
             if not text:
-                st.warning(f"Halaman {page_num + 1} tidak memiliki teks. Jika PDF berupa gambar, gunakan OCR.")
-                continue  # Lewati halaman kosong atau gambar
+                continue  # Lewati halaman kosong
             
             lines = text.split('\n')
             
             def find_value(key):
-                for line in lines:
-                    if key.lower() in line.lower():
-                        parts = line.split(':')
-                        if len(parts) > 1:
-                            return parts[-1].strip()
-                return None
+                return next((line.split(':')[-1].strip() for line in lines if key in line), None)
             
-            no_fp = find_value("Faktur Pajak") or find_value("Nomor Faktur")
+            no_fp = find_value("Faktur Pajak")
             nama_penjual = find_value("Nama Penjual")
             nama_pembeli = find_value("Nama Pembeli")
-            barang = find_value("Deskripsi Barang") or find_value("Nama Barang")
-            tanggal_faktur = find_value("Tanggal Faktur") or find_value("Tanggal")
-
+            barang = find_value("Deskripsi Barang")
+            tanggal_faktur = find_value("Tanggal Faktur")
+            
             harga, qty, total, dpp, ppn = None, None, None, None, None
             unit = "Unit"
             
@@ -57,9 +51,6 @@ def extract_data_from_pdf(pdf_file):
                     except Exception:
                         ppn = None
             
-            # Debugging: Tampilkan hasil sementara
-            st.text(f"Extracted from page {page_num + 1}: {no_fp}, {nama_penjual}, {nama_pembeli}, {barang}, {harga}, {unit}, {qty}, {total}, {dpp}, {ppn}, {tanggal_faktur}")
-
             if no_fp and nama_penjual and nama_pembeli:
                 data.append([no_fp, nama_penjual, nama_pembeli, barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])
     

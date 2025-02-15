@@ -2,57 +2,71 @@ import streamlit as st
 import pandas as pd
 import pdfplumber
 import io
+import re
 
 def extract_data_from_pdf(pdf_file):
     """
     Fungsi untuk mengekstrak data dari file PDF dan mengonversinya ke format tabel.
     """
     data = []
-    with pdfplumber.open(pdf_file) as pdf:
-        for page in pdf.pages:
-            text = page.extract_text()
-            if text:
+    try:
+        with pdfplumber.open(pdf_file) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text()
+                if not text:
+                    continue  # Lewati halaman kosong
+                
                 lines = text.split('\n')
+
+                def find_value(key_pattern):
+                    for line in lines:
+                        match = re.search(key_pattern, line, re.IGNORECASE)
+                        if match:
+                            return match.group(1).strip()
+                    return ""
+
+                no_fp = find_value(r"No FP[\s:]*(.*)")
+                nama_penjual = find_value(r"Nama Penjual[\s:]*(.*)")
+                nama_pembeli = find_value(r"Nama Pembeli[\s:]*(.*)")
+                barang = find_value(r"Barang[\s:]*(.*)")
+                tanggal_faktur = find_value(r"Tanggal Faktur[\s:]*(.*)")
                 
-                try:
-                    # Parsing data dari teks
-                    no_fp = lines[3].split(':')[-1].strip() if len(lines) > 3 else ""
-                    nama_penjual = lines[5].split(':')[-1].strip() if len(lines) > 5 else ""
-                    nama_pembeli = lines[10].split(':')[-1].strip() if len(lines) > 10 else ""
-                    barang = lines[17].strip() if len(lines) > 17 else ""
+                harga, qty, total, dpp, ppn = 0, 0, 0, 0, 0
+                unit = "Unit"
 
-                    try:
-                        harga = int(lines[18].split('x')[0].replace('Rp ', '').replace(',', '')) if len(lines) > 18 else 0
-                    except ValueError:
-                        harga = 0
+                for line in lines:
+                    harga_match = re.search(r"Rp\s*([\d,.]+)\s*x\s*(\d+)", line)
+                    if harga_match:
+                        try:
+                            harga = int(harga_match.group(1).replace('.', '').replace(',', ''))
+                            qty = int(harga_match.group(2))
+                            total = harga * qty
+                            unit = "Bulan" if "Bulan" in line else "Unit"
+                        except ValueError:
+                            harga, qty, total = 0, 0, 0
                     
-                    unit = "Bulan"
-
-                    try:
-                        qty = int(lines[18].split('x')[-1].split('Bulan')[0].strip()) if len(lines) > 18 else 0
-                    except ValueError:
-                        qty = 0
+                    dpp_match = re.search(r"DPP[\s:]*(\d+)", line)
+                    if dpp_match:
+                        try:
+                            dpp = int(dpp_match.group(1).replace('.', '').replace(',', ''))
+                        except ValueError:
+                            dpp = 0
                     
-                    total = harga * qty
-
-                    try:
-                        dpp = int(lines[22].split()[-1].replace(',', '')) if len(lines) > 22 else 0
-                    except ValueError:
-                        dpp = 0
-
-                    try:
-                        ppn = int(lines[24].split()[-1].replace(',', '')) if len(lines) > 24 else 0
-                    except ValueError:
-                        ppn = 0
-
-                    tanggal_faktur = lines[-4].split(',')[-1].strip() if len(lines) > 4 else ""
-
+                    ppn_match = re.search(r"PPN[\s:]*(\d+)", line)
+                    if ppn_match:
+                        try:
+                            ppn = int(ppn_match.group(1).replace('.', '').replace(',', ''))
+                        except ValueError:
+                            ppn = 0
+                
+                # Pastikan minimal ada beberapa data utama sebelum menambahkan ke list
+                if no_fp and nama_penjual and nama_pembeli:
                     data.append([no_fp, nama_penjual, nama_pembeli, barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])
-                
-                except Exception as e:
-                    print(f"Terjadi kesalahan dalam membaca halaman: {e}")
-
-    return data
+    except Exception as e:
+        st.error(f"Terjadi kesalahan saat membaca PDF: {e}")
+        return None
+    
+    return data if data else None
 
 # Streamlit UI
 st.title("Konversi Faktur Pajak PDF ke Excel")
@@ -61,7 +75,6 @@ uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF, bisa lebih dari sat
 
 if uploaded_files:
     all_data = []
-    
     for uploaded_file in uploaded_files:
         extracted_data = extract_data_from_pdf(uploaded_file)
         if extracted_data:

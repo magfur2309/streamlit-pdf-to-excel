@@ -3,21 +3,36 @@ import pandas as pd
 import pdfplumber
 import io
 import re
+import pytesseract
+from pdf2image import convert_from_path
+
+def ocr_extract_text(pdf_path):
+    """ Menggunakan OCR untuk mengekstrak teks jika PDF adalah gambar """
+    images = convert_from_path(pdf_path)
+    text = ""
+    for image in images:
+        text += pytesseract.image_to_string(image, lang="ind") + "\n"
+    return text
 
 def extract_data_from_pdf(pdf_file):
     """
     Fungsi untuk mengekstrak data dari file PDF dan mengonversinya ke format tabel.
     """
     data = []
+    text_found = False  # Menentukan apakah ada teks yang bisa diekstrak
+    
     try:
         with pdfplumber.open(pdf_file) as pdf:
             for page in pdf.pages:
                 text = page.extract_text()
-                if not text:
+                
+                if text:
+                    text_found = True  # Ada teks yang bisa diekstrak
+                else:
                     continue  # Lewati halaman kosong
                 
                 lines = text.split('\n')
-                
+
                 def find_value(key_pattern):
                     for line in lines:
                         match = re.search(key_pattern, line, re.IGNORECASE)
@@ -25,15 +40,15 @@ def extract_data_from_pdf(pdf_file):
                             return match.group(1).strip()
                     return None
                 
-                no_fp = find_value(r"Faktur Pajak[\s:]*(.*)")
+                no_fp = find_value(r"No FP[\s:]*(.*)")
                 nama_penjual = find_value(r"Nama Penjual[\s:]*(.*)")
                 nama_pembeli = find_value(r"Nama Pembeli[\s:]*(.*)")
-                barang = find_value(r"Deskripsi Barang[\s:]*(.*)")
+                barang = find_value(r"Barang[\s:]*(.*)")
                 tanggal_faktur = find_value(r"Tanggal Faktur[\s:]*(.*)")
-                
+
                 harga, qty, total, dpp, ppn = None, None, None, None, None
                 unit = "Unit"
-                
+
                 for line in lines:
                     harga_match = re.search(r"Rp[\s]*([\d,.]+)[\s]*x[\s]*(\d+)", line)
                     if harga_match:
@@ -61,10 +76,19 @@ def extract_data_from_pdf(pdf_file):
                 
                 if no_fp and nama_penjual and nama_pembeli:
                     data.append([no_fp, nama_penjual, nama_pembeli, barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])
+
     except Exception as e:
         st.error(f"Terjadi kesalahan saat membaca PDF: {e}")
         return None
     
+    # Jika tidak ada teks yang ditemukan, gunakan OCR
+    if not text_found:
+        st.warning("PDF mungkin berupa gambar, mencoba OCR...")
+        extracted_text = ocr_extract_text(pdf_file)
+        st.write(extracted_text)  # Debugging, bisa dihapus
+        
+        # Bisa ditambahkan proses parsing teks dari OCR
+
     return data if data else None
 
 # Streamlit UI
@@ -95,4 +119,4 @@ if uploaded_files:
         
         st.download_button(label="📥 Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
-        st.error("Gagal mengekstrak data. Pastikan format faktur sesuai.")
+        st.error("Gagal mengekstrak data. Pastikan format faktur sesuai atau gunakan OCR jika PDF berupa gambar.")

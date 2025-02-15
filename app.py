@@ -11,50 +11,48 @@ def extract_data_from_pdf(pdf_file):
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
-            if not text:
-                continue  # Lewati halaman kosong
-            
-            lines = text.split('\n')
-            
-            def find_value(key):
-                return next((line.split(':')[-1].strip() for line in lines if key in line), None)
-            
-            no_fp = find_value("Faktur Pajak")
-            nama_penjual = find_value("Nama Penjual")
-            nama_pembeli = find_value("Nama Pembeli")
-            barang = find_value("Deskripsi Barang")
-            tanggal_faktur = find_value("Tanggal Faktur")
-            
-            harga, qty, total, dpp, ppn = None, None, None, None, None
-            unit = "Unit"
-            
-            for line in lines:
-                if 'Rp' in line and 'x' in line:
-                    try:
-                        parts = line.replace('Rp', '').replace(',', '').split('x')
-                        harga = int(parts[0].strip())
-                        qty = int(parts[1].split()[0].strip())
-                        total = harga * qty
-                        unit = "Bulan" if "Bulan" in line else "Unit"
-                    except Exception:
-                        harga, qty, total = None, None, None
-                        
-                if "Dasar Pengenaan Pajak" in line:
-                    try:
-                        dpp = int(line.split()[-1].replace(',', ''))
-                    except Exception:
-                        dpp = None
+            if text:
+                lines = text.split('\n')
                 
-                if "PPN" in line:
+                try:
+                    # Parsing data dari teks
+                    no_fp = lines[3].split(':')[-1].strip() if len(lines) > 3 else ""
+                    nama_penjual = lines[5].split(':')[-1].strip() if len(lines) > 5 else ""
+                    nama_pembeli = lines[10].split(':')[-1].strip() if len(lines) > 10 else ""
+                    barang = lines[17].strip() if len(lines) > 17 else ""
+
                     try:
-                        ppn = int(line.split()[-1].replace(',', ''))
-                    except Exception:
-                        ppn = None
-            
-            if no_fp and nama_penjual and nama_pembeli:
-                data.append([no_fp, nama_penjual, nama_pembeli, barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])
-    
-    return data if data else None
+                        harga = int(lines[18].split('x')[0].replace('Rp ', '').replace(',', '')) if len(lines) > 18 else 0
+                    except ValueError:
+                        harga = 0
+                    
+                    unit = "Bulan"
+
+                    try:
+                        qty = int(lines[18].split('x')[-1].split('Bulan')[0].strip()) if len(lines) > 18 else 0
+                    except ValueError:
+                        qty = 0
+                    
+                    total = harga * qty
+
+                    try:
+                        dpp = int(lines[22].split()[-1].replace(',', '')) if len(lines) > 22 else 0
+                    except ValueError:
+                        dpp = 0
+
+                    try:
+                        ppn = int(lines[24].split()[-1].replace(',', '')) if len(lines) > 24 else 0
+                    except ValueError:
+                        ppn = 0
+
+                    tanggal_faktur = lines[-4].split(',')[-1].strip() if len(lines) > 4 else ""
+
+                    data.append([no_fp, nama_penjual, nama_pembeli, barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])
+                
+                except Exception as e:
+                    print(f"Terjadi kesalahan dalam membaca halaman: {e}")
+
+    return data
 
 # Streamlit UI
 st.title("Konversi Faktur Pajak PDF ke Excel")
@@ -63,6 +61,7 @@ uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF, bisa lebih dari sat
 
 if uploaded_files:
     all_data = []
+    
     for uploaded_file in uploaded_files:
         extracted_data = extract_data_from_pdf(uploaded_file)
         if extracted_data:
@@ -84,4 +83,4 @@ if uploaded_files:
         
         st.download_button(label="📥 Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
-        st.error("Gagal mengekstrak data. Pastikan format faktur sesuai atau gunakan OCR jika PDF berbentuk gambar.")
+        st.error("Gagal mengekstrak data. Pastikan format faktur sesuai.")

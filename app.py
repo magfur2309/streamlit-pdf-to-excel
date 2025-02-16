@@ -22,7 +22,7 @@ def extract_data_from_pdf(pdf_file):
                     
                     # Menangkap nama barang lebih akurat dan menghindari "Uang Muka / Termin Jasa (Rp)"
                     barang_match = re.findall(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*(.*?)\s*(?=Rp [\d.,]+)', text, re.DOTALL)
-                    #barang_list = [b.strip() for b in barang_match if not re.search(r'Uang Muka / Termin Jasa', b, re.IGNORECASE)]
+                    barang_list = [b.strip() for b in barang_match if not re.search(r'Uang Muka / Termin Jasa', b, re.IGNORECASE)]
                     barang_list = [b for b in barang_list if b]  # Hapus entri kosong
                     barang = ", ".join(barang_list) if barang_list else ""
                     

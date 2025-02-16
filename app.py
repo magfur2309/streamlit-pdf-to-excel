@@ -20,11 +20,10 @@ def extract_data_from_pdf(pdf_file):
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
 
                     # Menangkap Kode Barang/Jasa
-                    kode_barang_jasa = re.search(r'Kode Barang/Jasa\s*:\s*(\S+)', text)
-                    
-                    # Menangkap Nama Barang/Jasa
-                    barang_match = re.findall(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*(.*?)\s*(?=Rp [\d.,]+)', text, re.DOTALL)
-                    barang = ", ".join([b.strip() for b in barang_match if "Uang Muka / Termin Jasa" not in b]) if barang_match else ""
+                    kode_barang_jasa = re.search(r'(\d{6})\s+Sewa User', text)
+
+                    # Menangkap Nama Barang/Jasa dengan memastikan tidak mengambil "Uang Muka"
+                    barang_match = re.search(r'\d{6}\s+(Sewa User.*?)\s+Rp', text)
 
                     harga_qty_match = re.search(r'Rp ([\d.,]+) x ([\d.,]+) Bulan', text)
                     dpp = re.search(r'Dasar Pengenaan Pajak\s*([\d.,]+)', text)
@@ -35,6 +34,8 @@ def extract_data_from_pdf(pdf_file):
                     nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
                     nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
                     kode_barang_jasa = kode_barang_jasa.group(1) if kode_barang_jasa else ""
+                    barang = barang_match.group(1).strip() if barang_match else ""
+
                     harga = int(float(harga_qty_match.group(1).replace('.', '').replace(',', '.'))) if harga_qty_match else 0
                     qty = int(float(harga_qty_match.group(2).replace('.', '').replace(',', '.'))) if harga_qty_match else 0
                     unit = "Bulan"

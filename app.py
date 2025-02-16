@@ -5,20 +5,24 @@ import io
 import re
 
 def extract_data_from_pdf(pdf_file):
-    """
-    Fungsi untuk mengekstrak data dari file PDF dan mengonversinya ke format tabel.
-    """
     data = []
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
             if text:
                 try:
-                    # Menggunakan regex untuk menangkap data dengan lebih fleksibel
+                    # Cari bagian "Nama Barang Kena Pajak / Jasa Kena Pajak"
+                    barang_section = re.search(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*(.*?)(?:Rp \d{1,3}(?:\.\d{3})*,\d{2} x \d{1,3}(?:\.\d{3})*,\d{2} Bulan|Dasar Pengenaan Pajak|Jumlah PPN)', text, re.S)
+
+                    if barang_section:
+                        barang = barang_section.group(1).strip()
+                    else:
+                        barang = ""
+
+                    # Ekstraksi elemen lainnya
                     no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
                     nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
-                    barang_match = re.findall(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*(.+)', text)
                     harga_qty_match = re.search(r'Rp ([\d.,]+) x ([\d.,]+) Bulan', text)
                     dpp = re.search(r'Dasar Pengenaan Pajak\s*([\d.,]+)', text)
                     ppn = re.search(r'Jumlah PPN \(Pajak Pertambahan Nilai\)\s*([\d.,]+)', text)
@@ -27,7 +31,6 @@ def extract_data_from_pdf(pdf_file):
                     no_fp = no_fp.group(1) if no_fp else ""
                     nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
                     nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
-                    barang = ", ".join([b.strip() for b in barang_match]) if barang_match else ""
                     harga = int(float(harga_qty_match.group(1).replace('.', '').replace(',', '.'))) if harga_qty_match else 0
                     qty = int(float(harga_qty_match.group(2).replace('.', '').replace(',', '.'))) if harga_qty_match else 0
                     unit = "Bulan"

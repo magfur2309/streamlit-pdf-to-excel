@@ -3,6 +3,7 @@ import pandas as pd
 import pdfplumber
 import io
 import re
+from datetime import datetime
 
 def extract_data_from_pdf(pdf_file):
     """
@@ -35,6 +36,13 @@ def extract_data_from_pdf(pdf_file):
                     dpp = int(float(dpp.group(1).replace('.', '').replace(',', '.'))) if dpp else 0
                     ppn = int(float(ppn.group(1).replace('.', '').replace(',', '.'))) if ppn else 0
                     tanggal_faktur = tanggal_faktur.group(1) if tanggal_faktur else ""
+                    
+                    # Konversi format tanggal ke dd/mm/yyyy
+                    if tanggal_faktur:
+                        try:
+                            tanggal_faktur = datetime.strptime(tanggal_faktur, "%d %B %Y").strftime("%d/%m/%Y")
+                        except ValueError:
+                            pass  # Jika format tidak cocok, biarkan tetap seperti aslinya
 
                     if barang:  # Pastikan hanya menyimpan baris yang memiliki barang
                         data.append([no_fp, nama_penjual, nama_pembeli, barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])

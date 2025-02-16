@@ -3,7 +3,6 @@ import pandas as pd
 import pdfplumber
 import io
 import re
-from datetime import datetime
 
 def extract_data_from_pdf(pdf_file):
     """
@@ -19,30 +18,31 @@ def extract_data_from_pdf(pdf_file):
                     no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
                     nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
+
+                    # Menangkap Kode Barang/Jasa
+                    kode_barang_jasa = re.search(r'Kode Barang/Jasa\s*:\s*(\S+)', text)
                     
-                    # Menangkap nama barang/jasa (tanpa informasi tambahan seperti "Uang Muka / Termin Jasa (Rp)")
-                    barang_match = re.search(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*(.*?)\s*(?=\d)', text, re.DOTALL)
-                    barang = barang_match.group(1).strip() if barang_match else ""
-                    
-                    # Menghapus informasi yang tidak diinginkan dari kolom Barang
-                    if "Uang Muka / Termin Jasa" in barang:
-                        barang = barang.replace("Uang Muka / Termin Jasa (Rp)", "").strip()
-                    
-                    # Menangkap harga dan kuantitas
+                    # Menangkap Nama Barang/Jasa
+                    barang_match = re.findall(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*(.*?)\s*(?=Rp [\d.,]+)', text, re.DOTALL)
+                    barang = ", ".join([b.strip() for b in barang_match if "Uang Muka / Termin Jasa" not in b]) if barang_match else ""
+
                     harga_qty_match = re.search(r'Rp ([\d.,]+) x ([\d.,]+) Bulan', text)
+                    dpp = re.search(r'Dasar Pengenaan Pajak\s*([\d.,]+)', text)
+                    ppn = re.search(r'Jumlah PPN \(Pajak Pertambahan Nilai\)\s*([\d.,]+)', text)
+                    tanggal_faktur = re.search(r'KOTA .+, (\d{1,2}) (\w+) (\d{4})', text)
+
+                    no_fp = no_fp.group(1) if no_fp else ""
+                    nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
+                    nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
+                    kode_barang_jasa = kode_barang_jasa.group(1) if kode_barang_jasa else ""
                     harga = int(float(harga_qty_match.group(1).replace('.', '').replace(',', '.'))) if harga_qty_match else 0
                     qty = int(float(harga_qty_match.group(2).replace('.', '').replace(',', '.'))) if harga_qty_match else 0
                     unit = "Bulan"
                     total = harga * qty
-                    
-                    # Menangkap DPP dan PPN
-                    dpp = re.search(r'Dasar Pengenaan Pajak\s*([\d.,]+)', text)
-                    ppn = re.search(r'Jumlah PPN \(Pajak Pertambahan Nilai\)\s*([\d.,]+)', text)
                     dpp = int(float(dpp.group(1).replace('.', '').replace(',', '.'))) if dpp else 0
                     ppn = int(float(ppn.group(1).replace('.', '').replace(',', '.'))) if ppn else 0
-                    
-                    # Menangkap tanggal faktur
-                    tanggal_faktur = re.search(r'KOTA .+, (\d{1,2}) (\w+) (\d{4})', text)
+
+                    # Konversi format tanggal ke angka (dd/mm/yyyy)
                     if tanggal_faktur:
                         day, month, year = tanggal_faktur.groups()
                         month_mapping = {
@@ -53,20 +53,9 @@ def extract_data_from_pdf(pdf_file):
                         tanggal_faktur = f"{day.zfill(2)}/{month_mapping.get(month, '00')}/{year}"
                     else:
                         tanggal_faktur = ""
-                    
-                    # Simpan data jika barang/jasa ditemukan
-                    if barang:
-                        data.append([no_fp.group(1) if no_fp else "", 
-                                    nama_penjual.group(1).strip() if nama_penjual else "", 
-                                    nama_pembeli.group(1).strip() if nama_pembeli else "", 
-                                    barang, 
-                                    harga, 
-                                    unit, 
-                                    qty, 
-                                    total, 
-                                    dpp, 
-                                    ppn, 
-                                    tanggal_faktur])
+
+                    if barang:  # Pastikan hanya menyimpan baris yang memiliki barang
+                        data.append([no_fp, nama_penjual, nama_pembeli, kode_barang_jasa, barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])
                 except Exception as e:
                     st.error(f"Terjadi kesalahan dalam membaca halaman: {e}")
     return data
@@ -85,7 +74,7 @@ if uploaded_files:
             all_data.extend(extracted_data)
     
     if all_data:
-        df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
+        df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Kode Barang/Jasa", "Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
         
         # Hilangkan baris kosong dan reset index
         df = df[df['Barang'] != ""].reset_index(drop=True)

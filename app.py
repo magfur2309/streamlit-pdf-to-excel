@@ -20,8 +20,10 @@ def extract_data_from_pdf(pdf_file):
                     nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     
-                    # Menangkap nama barang lebih akurat
-                    barang_match = re.findall(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*(.*?)\s*(?=\d{1,3}(?:\.\d{3})*,\d{2})', text, re.DOTALL)
+                    # Menangkap nama barang lebih akurat dan menghindari "Uang Muka / Termin Jasa (Rp)"
+                    barang_match = re.findall(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*(.*?)\s*(?=Rp [\d.,]+)', text, re.DOTALL)
+                    barang = ", ".join([b.strip() for b in barang_match if "Uang Muka / Termin Jasa" not in b]) if barang_match else ""
+                    
                     harga_qty_match = re.search(r'Rp ([\d.,]+) x ([\d.,]+) Bulan', text)
                     dpp = re.search(r'Dasar Pengenaan Pajak\s*([\d.,]+)', text)
                     ppn = re.search(r'Jumlah PPN \(Pajak Pertambahan Nilai\)\s*([\d.,]+)', text)
@@ -30,7 +32,6 @@ def extract_data_from_pdf(pdf_file):
                     no_fp = no_fp.group(1) if no_fp else ""
                     nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
                     nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
-                    barang = ", ".join([b.strip() for b in barang_match if b.strip()]) if barang_match else ""
                     harga = int(float(harga_qty_match.group(1).replace('.', '').replace(',', '.'))) if harga_qty_match else 0
                     qty = int(float(harga_qty_match.group(2).replace('.', '').replace(',', '.'))) if harga_qty_match else 0
                     unit = "Bulan"
@@ -74,7 +75,7 @@ if uploaded_files:
         
         # Hilangkan baris kosong dan reset index
         df = df[df['Barang'] != ""].reset_index(drop=True)
-        df.index += 1  # Mulai index dari 1
+        df.index = df.index + 1  # Mulai index dari 1
         
         # Menampilkan pratinjau data
         st.write("### Pratinjau Data yang Diekstrak")

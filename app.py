@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import pdfplumber
 import io
+import re
 
 def extract_data_from_pdf(pdf_file):
     """
@@ -12,46 +13,32 @@ def extract_data_from_pdf(pdf_file):
         for page in pdf.pages:
             text = page.extract_text()
             if text:
-                lines = text.split('\n')
-                
                 try:
-                    # Parsing data dari teks
-                    no_fp = lines[3].split(':')[-1].strip() if len(lines) > 3 else ""
-                    nama_penjual = lines[5].split(':')[-1].strip() if len(lines) > 5 else ""
-                    nama_pembeli = lines[10].split(':')[-1].strip() if len(lines) > 10 else ""
-                    barang = lines[17].strip() if len(lines) > 17 else ""
+                    # Menggunakan regex untuk menangkap data dengan lebih fleksibel
+                    no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
+                    nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
+                    nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
+                    barang = re.search(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*(.+)', text)
+                    harga_qty_match = re.search(r'Rp ([\d,.]+) x ([\d,.]+) Bulan', text)
+                    dpp = re.search(r'Dasar Pengenaan Pajak\s*([\d,.]+)', text)
+                    ppn = re.search(r'Jumlah PPN \(Pajak Pertambahan Nilai\)\s*([\d,.]+)', text)
+                    tanggal_faktur = re.search(r'KOTA .+, (\d+ \w+ \d{4})', text)
 
-                    try:
-                        harga = int(lines[18].split('x')[0].replace('Rp ', '').replace(',', '')) if len(lines) > 18 else 0
-                    except ValueError:
-                        harga = 0
-                    
+                    no_fp = no_fp.group(1) if no_fp else ""
+                    nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
+                    nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
+                    barang = barang.group(1).strip() if barang else ""
+                    harga = int(harga_qty_match.group(1).replace(',', '')) if harga_qty_match else 0
+                    qty = int(harga_qty_match.group(2).replace(',', '')) if harga_qty_match else 0
                     unit = "Bulan"
-
-                    try:
-                        qty = int(lines[18].split('x')[-1].split('Bulan')[0].strip()) if len(lines) > 18 else 0
-                    except ValueError:
-                        qty = 0
-                    
                     total = harga * qty
-
-                    try:
-                        dpp = int(lines[22].split()[-1].replace(',', '')) if len(lines) > 22 else 0
-                    except ValueError:
-                        dpp = 0
-
-                    try:
-                        ppn = int(lines[24].split()[-1].replace(',', '')) if len(lines) > 24 else 0
-                    except ValueError:
-                        ppn = 0
-
-                    tanggal_faktur = lines[-4].split(',')[-1].strip() if len(lines) > 4 else ""
+                    dpp = int(dpp.group(1).replace(',', '')) if dpp else 0
+                    ppn = int(ppn.group(1).replace(',', '')) if ppn else 0
+                    tanggal_faktur = tanggal_faktur.group(1) if tanggal_faktur else ""
 
                     data.append([no_fp, nama_penjual, nama_pembeli, barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])
-                
                 except Exception as e:
-                    print(f"Terjadi kesalahan dalam membaca halaman: {e}")
-
+                    st.error(f"Terjadi kesalahan dalam membaca halaman: {e}")
     return data
 
 # Streamlit UI

@@ -15,16 +15,18 @@ def extract_data_from_pdf(pdf_file):
             text = page.extract_text()
             if text:
                 try:
-                    # Menggunakan regex yang lebih spesifik untuk menangkap barang
+                    # Menangkap informasi faktur
                     no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
                     nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
-                    barang_match = re.findall(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*(.*?)\s*(?:Rp|\d)', text, re.DOTALL)
+                    
+                    # Menangkap nama barang lebih akurat
+                    barang_match = re.findall(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*(.*?)\s*(?=\d{1,3}(?:\.\d{3})*,\d{2})', text, re.DOTALL)
                     harga_qty_match = re.search(r'Rp ([\d.,]+) x ([\d.,]+) Bulan', text)
                     dpp = re.search(r'Dasar Pengenaan Pajak\s*([\d.,]+)', text)
                     ppn = re.search(r'Jumlah PPN \(Pajak Pertambahan Nilai\)\s*([\d.,]+)', text)
                     tanggal_faktur = re.search(r'KOTA .+, (\d{1,2}) (\w+) (\d{4})', text)
-
+                    
                     no_fp = no_fp.group(1) if no_fp else ""
                     nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
                     nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
@@ -47,7 +49,7 @@ def extract_data_from_pdf(pdf_file):
                         tanggal_faktur = f"{day.zfill(2)}/{month_mapping.get(month, '00')}/{year}"
                     else:
                         tanggal_faktur = ""
-
+                    
                     if barang:  # Pastikan hanya menyimpan baris yang memiliki barang
                         data.append([no_fp, nama_penjual, nama_pembeli, barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])
                 except Exception as e:

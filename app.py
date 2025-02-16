@@ -19,30 +19,34 @@ def extract_data_from_pdf(pdf_file):
                     no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
                     nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
-                    barang_match = re.findall(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*(.*?)\s*Rp', text, re.DOTALL)
+                    barang_match = re.findall(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*(.*?)\s*(?:Rp|\d)', text, re.DOTALL)
                     harga_qty_match = re.search(r'Rp ([\d.,]+) x ([\d.,]+) Bulan', text)
                     dpp = re.search(r'Dasar Pengenaan Pajak\s*([\d.,]+)', text)
                     ppn = re.search(r'Jumlah PPN \(Pajak Pertambahan Nilai\)\s*([\d.,]+)', text)
-                    tanggal_faktur = re.search(r'KOTA .+, (\d+ \w+ \d{4})', text)
+                    tanggal_faktur = re.search(r'KOTA .+, (\d{1,2}) (\w+) (\d{4})', text)
 
                     no_fp = no_fp.group(1) if no_fp else ""
                     nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
                     nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
-                    barang = ", ".join([b.strip() for b in barang_match]) if barang_match else ""
+                    barang = ", ".join([b.strip() for b in barang_match if b.strip()]) if barang_match else ""
                     harga = int(float(harga_qty_match.group(1).replace('.', '').replace(',', '.'))) if harga_qty_match else 0
                     qty = int(float(harga_qty_match.group(2).replace('.', '').replace(',', '.'))) if harga_qty_match else 0
                     unit = "Bulan"
                     total = harga * qty
                     dpp = int(float(dpp.group(1).replace('.', '').replace(',', '.'))) if dpp else 0
                     ppn = int(float(ppn.group(1).replace('.', '').replace(',', '.'))) if ppn else 0
-                    tanggal_faktur = tanggal_faktur.group(1) if tanggal_faktur else ""
                     
-                    # Konversi format tanggal ke dd/mm/yyyy
+                    # Konversi format tanggal ke angka (dd/mm/yyyy)
                     if tanggal_faktur:
-                        try:
-                            tanggal_faktur = datetime.strptime(tanggal_faktur, "%d %B %Y").strftime("%d/%m/%Y")
-                        except ValueError:
-                            pass  # Jika format tidak cocok, biarkan tetap seperti aslinya
+                        day, month, year = tanggal_faktur.groups()
+                        month_mapping = {
+                            "Januari": "01", "Februari": "02", "Maret": "03", "April": "04",
+                            "Mei": "05", "Juni": "06", "Juli": "07", "Agustus": "08",
+                            "September": "09", "Oktober": "10", "November": "11", "Desember": "12"
+                        }
+                        tanggal_faktur = f"{day.zfill(2)}/{month_mapping.get(month, '00')}/{year}"
+                    else:
+                        tanggal_faktur = ""
 
                     if barang:  # Pastikan hanya menyimpan baris yang memiliki barang
                         data.append([no_fp, nama_penjual, nama_pembeli, barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])

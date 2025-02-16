@@ -11,9 +11,10 @@ def extract_data_from_pdf(pdf_file):
     data = []
     try:
         with pdfplumber.open(pdf_file) as pdf:
-            for page in pdf.pages:
+            for page_num, page in enumerate(pdf.pages, start=1):
                 text = page.extract_text()
                 if not text:
+                    st.warning(f"⚠ Halaman {page_num} kosong atau tidak dapat diekstrak.")
                     continue  # Lewati halaman kosong
                 
                 lines = [line.strip() for line in text.split('\n') if line.strip()]
@@ -23,14 +24,19 @@ def extract_data_from_pdf(pdf_file):
                     for line in lines:
                         match = re.search(key_pattern, line, re.IGNORECASE)
                         if match:
-                            return match.group(1).strip()
-                    return ""
+                            return match.group(1).strip() if match.group(1) else ""
+                    return ""  # Jika tidak ditemukan, kembalikan string kosong
 
                 no_fp = find_value(r"No[ ]?FP[\s:]*(.*)")
                 nama_penjual = find_value(r"Nama[ ]?Penjual[\s:]*(.*)")
                 nama_pembeli = find_value(r"Nama[ ]?Pembeli[\s:]*(.*)")
                 barang = find_value(r"Barang|Deskripsi Barang[\s:]*(.*)")
                 tanggal_faktur = find_value(r"Tanggal[ ]?Faktur[\s:]*(.*)")
+
+                # Cek jika data utama kosong, skip halaman ini
+                if not no_fp or not nama_penjual or not nama_pembeli:
+                    st.warning(f"⚠ Data utama kosong pada halaman {page_num}, lewati halaman ini.")
+                    continue  
 
                 # Ekstraksi angka (Harga, QTY, Total, DPP, PPN)
                 harga, qty, total, dpp, ppn = 0, 0, 0, 0, 0
@@ -61,9 +67,8 @@ def extract_data_from_pdf(pdf_file):
                         except ValueError:
                             ppn = 0
                 
-                # Validasi agar tidak mengambil data tambahan yang tidak perlu
-                if all([no_fp, nama_penjual, nama_pembeli]) and not no_fp.lower().startswith("dokumen"):
-                    data.append([no_fp, nama_penjual, nama_pembeli, barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])
+                # Simpan data ke dalam list
+                data.append([no_fp, nama_penjual, nama_pembeli, barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])
     
     except Exception as e:
         st.error(f"Terjadi kesalahan saat membaca PDF: {e}")

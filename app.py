@@ -20,25 +20,25 @@ def extract_data_from_pdf(pdf_file):
                     nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     
-                    # Menangkap nama barang lebih akurat dan menghindari "Uang Muka / Termin Jasa (Rp)"
-                     barang = re.search(r'Note\s*(.*?)\s*INVOICE', text, re.DOTALL)
+                    # Menangkap nama barang/jasa (tanpa informasi harga atau kuantitas)
+                    barang_match = re.search(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*(.*?)\s*(?=\d)', text, re.DOTALL)
+                    barang = barang_match.group(1).strip() if barang_match else ""
                     
+                    # Menangkap harga dan kuantitas
                     harga_qty_match = re.search(r'Rp ([\d.,]+) x ([\d.,]+) Bulan', text)
-                    dpp = re.search(r'Dasar Pengenaan Pajak\s*([\d.,]+)', text)
-                    ppn = re.search(r'Jumlah PPN \(Pajak Pertambahan Nilai\)\s*([\d.,]+)', text)
-                    tanggal_faktur = re.search(r'KOTA .+, (\d{1,2}) (\w+) (\d{4})', text)
-                    
-                    no_fp = no_fp.group(1) if no_fp else ""
-                    nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
-                    nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
                     harga = int(float(harga_qty_match.group(1).replace('.', '').replace(',', '.'))) if harga_qty_match else 0
                     qty = int(float(harga_qty_match.group(2).replace('.', '').replace(',', '.'))) if harga_qty_match else 0
                     unit = "Bulan"
                     total = harga * qty
+                    
+                    # Menangkap DPP dan PPN
+                    dpp = re.search(r'Dasar Pengenaan Pajak\s*([\d.,]+)', text)
+                    ppn = re.search(r'Jumlah PPN \(Pajak Pertambahan Nilai\)\s*([\d.,]+)', text)
                     dpp = int(float(dpp.group(1).replace('.', '').replace(',', '.'))) if dpp else 0
                     ppn = int(float(ppn.group(1).replace('.', '').replace(',', '.'))) if ppn else 0
                     
-                    # Konversi format tanggal ke angka (dd/mm/yyyy)
+                    # Menangkap tanggal faktur
+                    tanggal_faktur = re.search(r'KOTA .+, (\d{1,2}) (\w+) (\d{4})', text)
                     if tanggal_faktur:
                         day, month, year = tanggal_faktur.groups()
                         month_mapping = {
@@ -50,8 +50,19 @@ def extract_data_from_pdf(pdf_file):
                     else:
                         tanggal_faktur = ""
                     
-                    if barang:  # Pastikan hanya menyimpan baris yang memiliki barang
-                        data.append([no_fp, nama_penjual, nama_pembeli, barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])
+                    # Simpan data jika barang/jasa ditemukan
+                    if barang:
+                        data.append([no_fp.group(1) if no_fp else "", 
+                                    nama_penjual.group(1).strip() if nama_penjual else "", 
+                                    nama_pembeli.group(1).strip() if nama_pembeli else "", 
+                                    barang, 
+                                    harga, 
+                                    unit, 
+                                    qty, 
+                                    total, 
+                                    dpp, 
+                                    ppn, 
+                                    tanggal_faktur])
                 except Exception as e:
                     st.error(f"Terjadi kesalahan dalam membaca halaman: {e}")
     return data

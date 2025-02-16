@@ -22,7 +22,8 @@ def extract_data_from_pdf(pdf_file):
                     
                     # Menangkap nama barang lebih akurat dan menghindari "Uang Muka / Termin Jasa (Rp)"
                     barang_match = re.findall(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*(.*?)\s*(?=Rp [\d.,]+)', text, re.DOTALL)
-                    barang = ", ".join([b.strip() for b in barang_match if "Uang Muka / Termin Jasa" not in b]) if barang_match else ""
+                    barang_list = [b.strip() for b in barang_match if "Uang Muka / Termin Jasa" not in b]
+                    barang = ", ".join(barang_list) if barang_list else ""
                     
                     harga_qty_match = re.search(r'Rp ([\d.,]+) x ([\d.,]+) Bulan', text)
                     dpp = re.search(r'Dasar Pengenaan Pajak\s*([\d.,]+)', text)
@@ -76,6 +77,10 @@ if uploaded_files:
         # Hilangkan baris kosong dan reset index
         df = df[df['Barang'] != ""].reset_index(drop=True)
         df.index = df.index + 1  # Mulai index dari 1
+        
+        # Sembunyikan kolom Barang jika hanya berisi "Uang Muka / Termin Jasa"
+        if df['Barang'].nunique() == 1 and "Uang Muka / Termin Jasa" in df['Barang'].values:
+            df = df.drop(columns=["Barang"])
         
         # Menampilkan pratinjau data
         st.write("### Pratinjau Data yang Diekstrak")

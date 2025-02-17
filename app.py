@@ -13,6 +13,7 @@ def extract_data_from_pdf(pdf_file):
     data = []
     faktur_counter = 1  # Untuk menjaga urutan nomor faktur
     tanggal_faktur = None  # Menyimpan tanggal faktur jika ada di halaman berikutnya
+    last_valid_data = None  # Menyimpan data dari halaman pertama jika halaman berikutnya kosong
     
     month_mapping = {
         "Januari": "01", "Februari": "02", "Maret": "03", "April": "04",
@@ -23,6 +24,7 @@ def extract_data_from_pdf(pdf_file):
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
+            page_data = []
             if text:
                 try:
                     # Mencari tanggal faktur di setiap halaman
@@ -50,19 +52,19 @@ def extract_data_from_pdf(pdf_file):
                             dpp = total / 1.11  # Menghitung DPP dengan asumsi PPN 11%
                             ppn = total - dpp
                             
-                            data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
+                            page_data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
                     else:
-                        data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, "Tidak ditemukan", 0, "", 0, 0, 0, 0, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
+                        page_data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, "Tidak ditemukan", 0, "", 0, 0, 0, 0, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
                     
-                    # Pastikan setiap faktur memiliki tanggal faktur yang benar
-                    if data and tanggal_faktur:
-                        for row in data:
-                            if row[11] == "Tidak ditemukan":
-                                row[11] = tanggal_faktur
-                    
-                    faktur_counter += 1  # Naikkan counter jika ada faktur baru
+                    if page_data:
+                        last_valid_data = page_data  # Simpan data yang valid dari halaman pertama
+                        data.extend(page_data)
+                        faktur_counter += 1
                 except Exception as e:
                     st.error(f"Terjadi kesalahan dalam membaca halaman: {e}")
+            else:
+                if last_valid_data:
+                    data.extend(last_valid_data)  # Gunakan data halaman pertama jika halaman berikutnya kosong
     
     return data
 
@@ -83,7 +85,7 @@ if uploaded_files:
         df = pd.DataFrame(all_data, columns=["No", "No FP", "Nama Penjual", "Nama Pembeli", "Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
         
         df = df[df['Barang'] != ""].reset_index(drop=True)
-        df['No'] = range(1, len(df) + 1)  # Pastikan nomor urut sesuai
+        df['No'] = range(1, len(df) + 1)  # Pastikan nomor urut sesuai dengan jumlah faktur
         
         # Menampilkan pratinjau data
         st.write("### Pratinjau Data yang Diekstrak")

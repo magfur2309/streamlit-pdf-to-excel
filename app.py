@@ -13,52 +13,47 @@ def extract_data_from_pdf(pdf_file):
     data = []
     with pdfplumber.open(pdf_file) as pdf:
         no_fp, nama_penjual, nama_pembeli, tanggal_faktur = "", "", "", ""
-        
         for page in pdf.pages:
             text = page.extract_text()
             if text:
-                # Perbaiki regex untuk menangkap format lain jika ada variasi dalam dokumen PDF
-                match_fp = re.search(r'No FP\s*:\s*([\d./-]+)', text)
-                match_penjual = re.search(r'Nama Penjual\s*:\s*(.+)', text)
-                match_pembeli = re.search(r'Nama Pembeli\s*:\s*(.+)', text)
+                match_fp = re.search(r'No FP\s*:\s*(\d+)', text)
+                match_penjual = re.search(r'Nama Penjual\s*:\s*(.*)', text)
+                match_pembeli = re.search(r'Nama Pembeli\s*:\s*(.*)', text)
                 match_tanggal = re.search(r'Tanggal Faktur\s*:\s*(\d{2}/\d{2}/\d{4})', text)
                 
                 if match_fp:
-                    no_fp = match_fp.group(1).strip()
+                    no_fp = match_fp.group(1)
                 if match_penjual:
                     nama_penjual = match_penjual.group(1).strip()
                 if match_pembeli:
                     nama_pembeli = match_pembeli.group(1).strip()
                 if match_tanggal:
-                    tanggal_faktur = match_tanggal.group(1).strip()
-
-            table = page.extract_table()
+                    tanggal_faktur = match_tanggal.group(1)
             
+            table = page.extract_table()
             if table:
                 for row in table:
-                    if len(row) < 7:  # Pastikan jumlah kolom cukup
-                        continue
-                    try:
-                        def convert_to_float(value):
-                            try:
-                                return float(value.replace('.', '').replace(',', '.')) if value else 0.0
-                            except ValueError:
-                                return 0.0
-                        
-                        kode_barang = row[0].strip() if row[0] else ""
-                        nama_barang = row[1].strip() if row[1] else ""
-                        harga = convert_to_float(row[2])
-                        qty = convert_to_float(row[3])
-                        unit = row[4].strip() if row[4] else ""
-                        total = harga * qty
-                        dpp = convert_to_float(row[5])
-                        ppn = convert_to_float(row[6])
-
-                        data.append([no_fp, nama_penjual, nama_pembeli, kode_barang, nama_barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])
-                    except Exception as e:
-                        st.error(f"Terjadi kesalahan dalam membaca tabel: {e}")
+                    if any(row):  # Pastikan ada data dalam baris
+                        try:
+                            def convert_to_float(value):
+                                try:
+                                    return float(value.replace('.', '').replace(',', '.')) if value else 0.0
+                                except ValueError:
+                                    return 0.0
+                            
+                            kode_barang = row[0].strip() if len(row) > 0 and row[0] else ""
+                            nama_barang = row[1].strip() if len(row) > 1 and row[1] else ""
+                            harga = convert_to_float(row[2]) if len(row) > 2 else 0.0
+                            qty = convert_to_float(row[3]) if len(row) > 3 else 0.0
+                            unit = row[4].strip() if len(row) > 4 and row[4] else ""
+                            total = harga * qty
+                            dpp = convert_to_float(row[5]) if len(row) > 5 else 0.0
+                            ppn = convert_to_float(row[6]) if len(row) > 6 else 0.0
+                            
+                            data.append([no_fp, nama_penjual, nama_pembeli, kode_barang, nama_barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])
+                        except Exception as e:
+                            st.error(f"Terjadi kesalahan dalam membaca tabel: {e}")
     return data
-
 
 # Streamlit UI
 st.title("Konversi Faktur Pajak PDF ke Excel")

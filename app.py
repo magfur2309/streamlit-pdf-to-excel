@@ -14,33 +14,22 @@ def extract_data_from_pdf(pdf_file):
     with pdfplumber.open(pdf_file) as pdf:
         no_fp, nama_penjual, nama_pembeli = "", "", ""
         for page in pdf.pages:
-            text = page.extract_text()
-            if text:
-                try:
-                    # Menangkap informasi faktur hanya dari halaman pertama
-                    if not no_fp:
-                        no_fp_match = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
-                        nama_penjual_match = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
-                        nama_pembeli_match = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
-                        
-                        no_fp = no_fp_match.group(1) if no_fp_match else ""
-                        nama_penjual = nama_penjual_match.group(1).strip() if nama_penjual_match else ""
-                        nama_pembeli = nama_pembeli_match.group(1).strip() if nama_pembeli_match else ""
-                    
-                    # Menangkap informasi barang/jasa dengan regex yang lebih fleksibel dan akurat
-                    barang_pattern = re.findall(r'(\d+)\s+000000\s+([\w\s\-,.]+?)\s+Rp\s([\d.,]+)\s+x\s+([\d.,]+)\s+([A-Za-z]+)', text)
-                    
-                    for barang in barang_pattern:
-                        kode_barang = barang[0].strip()
-                        nama_barang = barang[1].strip()
-                        harga = float(barang[2].replace('.', '').replace(',', '.'))
-                        qty = float(barang[3].replace('.', '').replace(',', '.'))
-                        unit = barang[4].strip()
-                        total = harga * qty
-                        
-                        data.append([no_fp, nama_penjual, nama_pembeli, kode_barang, nama_barang, harga, unit, qty, total])
-                except Exception as e:
-                    st.error(f"Terjadi kesalahan dalam membaca halaman: {e}")
+            table = page.extract_table()
+            if table:
+                for row in table:
+                    if any(row):  # Pastikan ada data dalam baris
+                        try:
+                            # Ambil data berdasarkan kolom yang sesuai
+                            kode_barang = row[0].strip() if row[0] else ""
+                            nama_barang = row[1].strip() if row[1] else ""
+                            harga = float(row[2].replace('.', '').replace(',', '.')) if row[2] else 0.0
+                            qty = float(row[3].replace('.', '').replace(',', '.')) if row[3] else 0.0
+                            unit = row[4].strip() if row[4] else ""
+                            total = harga * qty
+
+                            data.append([no_fp, nama_penjual, nama_pembeli, kode_barang, nama_barang, harga, unit, qty, total])
+                        except Exception as e:
+                            st.error(f"Terjadi kesalahan dalam membaca tabel: {e}")
     return data
 
 # Streamlit UI

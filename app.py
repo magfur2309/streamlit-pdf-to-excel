@@ -14,17 +14,15 @@ def extract_data_from_pdf(pdf_file):
         for page in pdf.pages:
             text = page.extract_text()
             if text:
-                st.text("Teks yang diekstrak dari PDF:")
-                st.text(text)
                 try:
                     # Menangkap informasi faktur
                     no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
                     nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     
-                    # Menangkap nama barang lebih akurat dan menghindari "Uang Muka / Termin Jasa (Rp)"
-                    barang_match = re.findall(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*(.*?)\s*(?=Rp [\d.,]+)', text, re.DOTALL)
-                    barang = ", ".join([b.strip() for b in barang_match if not re.search(r'Uang Muka|Termin Jasa', b, re.IGNORECASE)]) if barang_match else ""
+                    # Menangkap nama barang lebih akurat setelah "Nama Barang Kena Pajak / Jasa Kena Pajak"
+                    barang_section = re.search(r'Nama Barang Kena Pajak / Jasa Kena Pajak.*?(\d{1,}\s[\w\s]+.*?)(?=Harga Jual)', text, re.DOTALL)
+                    barang = barang_section.group(1).strip() if barang_section else ""
                     
                     harga_qty_match = re.search(r'Rp ([\d.,]+) x ([\d.,]+) Bulan', text)
                     dpp = re.search(r'Dasar Pengenaan Pajak\s*([\d.,]+)', text)

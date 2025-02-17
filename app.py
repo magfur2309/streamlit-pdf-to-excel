@@ -14,20 +14,21 @@ def extract_data_from_pdf(pdf_file):
     faktur_counter = 1  # Untuk menjaga urutan nomor faktur
     tanggal_faktur = None  # Menyimpan tanggal faktur jika ada di halaman berikutnya
     
+    month_mapping = {
+        "Januari": "01", "Februari": "02", "Maret": "03", "April": "04",
+        "Mei": "05", "Juni": "06", "Juli": "07", "Agustus": "08",
+        "September": "09", "Oktober": "10", "November": "11", "Desember": "12"
+    }
+    
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
             if text:
                 try:
                     # Mencari tanggal faktur di setiap halaman
-                    match_tanggal = re.search(r'KOTA ADM\.\s*[A-Z ]+,\s*(\d{1,2})\s*(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s*(\d{4})', text)
+                    match_tanggal = re.search(r'([0-9]{1,2})\s*(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s*([0-9]{4})', text)
                     if match_tanggal:
                         day, month, year = match_tanggal.groups()
-                        month_mapping = {
-                            "Januari": "01", "Februari": "02", "Maret": "03", "April": "04",
-                            "Mei": "05", "Juni": "06", "Juli": "07", "Agustus": "08",
-                            "September": "09", "Oktober": "10", "November": "11", "Desember": "12"
-                        }
                         tanggal_faktur = f"{day.zfill(2)}/{month_mapping.get(month, '00')}/{year}"
                     
                     no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)

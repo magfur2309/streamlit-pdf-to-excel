@@ -62,9 +62,11 @@ if uploaded_files:
         df = df.sort_values(by=["No Faktur", "No Urut"]).reset_index(drop=True)
         # Hapus kolom No Urut (jika ada di posisi tertentu)
         df = df.drop(columns=["No Urut"], errors="ignore")
-        # Menambahkan kolom No sebagai nomor urut
-        df.insert(0, "No", range(1, len(df) + 1))
+      
         
+        # Menampilkan di Streamlit tanpa indeks Pandas
+        st.dataframe(df.style.hide(axis="index"))
+
         st.write("### Pratinjau Data yang Diekstrak")
         st.dataframe(df)
         

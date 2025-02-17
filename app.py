@@ -11,24 +11,25 @@ def extract_data_from_pdf(pdf_file):
     memastikan semua barang dari multi-halaman terbaca dengan akurat.
     """
     data = []
+    no_fp, nama_penjual, nama_pembeli, tanggal_faktur = "", "", "", ""
+    
     with pdfplumber.open(pdf_file) as pdf:
-        no_fp, nama_penjual, nama_pembeli, tanggal_faktur = "", "", "", ""
         for i, page in enumerate(pdf.pages):
             text = page.extract_text()
             if text and i == 0:  # Ambil data hanya dari halaman pertama
-                match_fp = re.search(r'No FP\s*[:\-]\s*(\d+)', text)
-                match_penjual = re.search(r'Nama Penjual\s*[:\-]\s*(.*)', text)
-                match_pembeli = re.search(r'Nama Pembeli\s*[:\-]\s*(.*)', text)
-                match_tanggal = re.search(r'Tanggal Faktur\s*[:\-]\s*(\d{2}/\d{2}/\d{4})', text)
+                match_fp = re.search(r'No\s*Faktur\s*[:\-]?\s*(\d+)', text, re.IGNORECASE)
+                match_penjual = re.search(r'Nama\s*Penjual\s*[:\-]?\s*([\w\s]+)', text, re.IGNORECASE)
+                match_pembeli = re.search(r'Nama\s*Pembeli\s*[:\-]?\s*([\w\s]+)', text, re.IGNORECASE)
+                match_tanggal = re.search(r'Tanggal\s*Faktur\s*[:\-]?\s*(\d{2}/\d{2}/\d{4})', text, re.IGNORECASE)
                 
                 if match_fp:
-                    no_fp = match_fp.group(1)
+                    no_fp = match_fp.group(1).strip()
                 if match_penjual:
                     nama_penjual = match_penjual.group(1).strip()
                 if match_pembeli:
                     nama_pembeli = match_pembeli.group(1).strip()
                 if match_tanggal:
-                    tanggal_faktur = match_tanggal.group(1)
+                    tanggal_faktur = match_tanggal.group(1).strip()
             
             table = page.extract_table()
             if table:
@@ -69,7 +70,7 @@ if uploaded_files:
             all_data.extend(extracted_data)
     
     if all_data:
-        df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Kode Barang", "Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
+        df = pd.DataFrame(all_data, columns=["No Faktur", "Nama Penjual", "Nama Pembeli", "Kode Barang", "Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
         
         # Hilangkan baris kosong dan reset index
         df = df[df['Barang'] != ""].reset_index(drop=True)

@@ -35,24 +35,21 @@ def extract_data_from_pdf(pdf_file):
                     nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     
-                    no_fp = no_fp.group(1) if no_fp else "Tidak ditemukan"
-                    nama_penjual = nama_penjual.group(1).strip() if nama_penjual else "Tidak ditemukan"
-                    nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else "Tidak ditemukan"
+                    no_fp = no_fp.group(1) if no_fp else ""
+                    nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
+                    nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
                     
                     # Menangkap informasi barang/jasa dengan berbagai format harga dan qty
                     barang_pattern = re.findall(r'(.*?)\s+Rp ([\d.,]+) x ([\d.,]+) (\w+)', text)
-                    if barang_pattern:
-                        for barang_match in barang_pattern:
-                            barang, harga, qty, unit = barang_match
-                            harga = int(float(harga.replace('.', '').replace(',', '.')))
-                            qty = int(float(qty.replace('.', '').replace(',', '.')))
-                            total = harga * qty
-                            dpp = total / 1.11  # Menghitung DPP dengan asumsi PPN 11%
-                            ppn = total - dpp
-                            
-                            data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
-                    else:
-                        data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, "Tidak ditemukan", 0, "", 0, 0, 0, 0, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
+                    for barang_match in barang_pattern:
+                        barang, harga, qty, unit = barang_match
+                        harga = int(float(harga.replace('.', '').replace(',', '.')))
+                        qty = int(float(qty.replace('.', '').replace(',', '.')))
+                        total = harga * qty
+                        dpp = total / 1.11  # Menghitung DPP dengan asumsi PPN 11%
+                        ppn = total - dpp
+                        
+                        data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
                     
                     # Pastikan setiap faktur memiliki tanggal faktur yang benar
                     if data and tanggal_faktur:
@@ -83,7 +80,7 @@ if uploaded_files:
         df = pd.DataFrame(all_data, columns=["No", "No FP", "Nama Penjual", "Nama Pembeli", "Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
         
         df = df[df['Barang'] != ""].reset_index(drop=True)
-        df['No'] = range(1, len(df) + 1)  # Pastikan nomor urut sesuai
+        df.index = df.index + 1  # Mulai index dari 1
         
         # Menampilkan pratinjau data
         st.write("### Pratinjau Data yang Diekstrak")
@@ -92,7 +89,7 @@ if uploaded_files:
         # Simpan ke Excel
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Faktur Pajak')
+            df.to_excel(writer, index=True, sheet_name='Faktur Pajak')
             writer.close()
         output.seek(0)
         

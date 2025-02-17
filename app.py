@@ -42,7 +42,7 @@ def extract_data_from_pdf(pdf_file):
                     nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else "Tidak ditemukan"
                     
                     # Menangkap informasi barang/jasa dengan berbagai format harga dan qty
-                    barang_pattern = re.findall(r'(?P<barang>.*?)\s+(?P<harga>\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?)\s+x\s+(?P<qty>\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?)\s+(?P<unit>\w+)', text)
+                    barang_pattern = re.findall(r'(.*?)\s+Rp ([\d.,]+) x ([\d.,]+) (\w+)', text)
                     if barang_pattern:
                         for barang_match in barang_pattern:
                             barang, harga, qty, unit = barang_match

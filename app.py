@@ -5,40 +5,44 @@ import io
 import re
 
 def extract_data_from_pdf(pdf_file):
+    """
+    Fungsi untuk mengekstrak data dari file PDF dan mengonversinya ke format tabel.
+    """
     data = []
-    nomor_faktur, nama_penjual, nama_pembeli = "", "", ""
+    full_text = ""
     
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
             if text:
-                try:
-                    if not nomor_faktur:
-                        match = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
-                        nomor_faktur = match.group(1) if match else ""
-                    
-                    if not nama_penjual:
-                        match = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
-                        nama_penjual = match.group(1).strip() if match else ""
-                    
-                    if not nama_pembeli:
-                        match = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
-                        nama_pembeli = match.group(1).strip() if match else ""
-                    
-                    # Menangkap informasi barang per nomor urut
-                    items = re.findall(r'(\d+)\s+000000\n([\s\S]+?)\nRp ([\d.,]+) x ([\d.,]+) Piece', text)
-                    
-                    for item in items:
-                        nomor_urut = item[0]
-                        barang = item[1].strip()
-                        harga = float(item[2].replace('.', '').replace(',', '.'))
-                        qty = int(float(item[3].replace('.', '').replace(',', '.')))
-                        total = harga * qty
-                        
-                        data.append([nomor_faktur, nama_penjual, nama_pembeli, nomor_urut, barang, harga, qty, total])
-                except Exception as e:
-                    st.error(f"Kesalahan saat membaca halaman: {e}")
+                full_text += text + "\n"
+    
+    try:
+        # Menangkap informasi faktur
+        no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', full_text)
+        nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', full_text)
+        nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', full_text)
+
+        # Menangkap informasi barang
+        barang_regex = re.findall(r'(\d{1,2})\s+000000\s+(.+?)\s+Rp ([\d.,]+) x ([\d.,]+) Piece', full_text)
+
+        for match in barang_regex:
+            nomor, barang, harga, qty = match
+
+            harga = int(float(harga.replace('.', '').replace(',', '.')))
+            qty = int(float(qty.replace('.', '').replace(',', '.')))
+            total = harga * qty
+
+            data.append([no_fp.group(1) if no_fp else "",
+                         nama_penjual.group(1).strip() if nama_penjual else "",
+                         nama_pembeli.group(1).strip() if nama_pembeli else "",
+                         barang.strip(),
+                         harga, "Piece", qty, total])
+    except Exception as e:
+        st.error(f"Terjadi kesalahan dalam membaca file: {e}")
+
     return data
+
 
 # Streamlit UI
 st.title("Ekstraksi Faktur Pajak PDF ke Excel")

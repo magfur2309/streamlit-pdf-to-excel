@@ -20,9 +20,15 @@ def extract_data_from_pdf(pdf_file):
                     nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     
-                    # Menangkap hanya informasi setelah "Uang Muka / Termin Jasa (Rp)"
+                    # Menangkap informasi barang setelah "Uang Muka / Termin Jasa (Rp)"
                     barang_match = re.search(r'Uang Muka / Termin Jasa \(Rp\)\s*(.*)', text, re.DOTALL)
-                    barang = barang_match.group(1).strip() if barang_match else ""
+                    if barang_match:
+                        barang = barang_match.group(1).strip()
+                    else:
+                        barang = ""
+                    
+                    # Hapus frasa "Uang Muka / Termin Jasa (Rp)" dari barang
+                    barang = re.sub(r'^Uang Muka / Termin Jasa \(Rp\)\s*', '', barang).strip()
                     
                     harga_qty_match = re.search(r'Rp ([\d.,]+) x ([\d.,]+) Bulan', text)
                     dpp = re.search(r'Dasar Pengenaan Pajak\s*([\d.,]+)', text)
@@ -88,6 +94,6 @@ if uploaded_files:
             writer.close()
         output.seek(0)
         
-        st.download_button(label="📥 Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.download_button(label="\ud83d\udcbe Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
         st.error("Gagal mengekstrak data. Pastikan format faktur sesuai.")

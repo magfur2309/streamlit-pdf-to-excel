@@ -26,7 +26,6 @@ def clean_barang_data(text):
     if not text:
         return []
     
-    # Cari bagian setelah "Barang" dan pisahkan barisnya
     lines = text.split("\n")
     start_index = next((i for i, line in enumerate(lines) if "Barang" in line), None)
     
@@ -38,7 +37,9 @@ def clean_barang_data(text):
     for line in lines[start_index + 1:]:
         if "Uang Muka / Termin Jasa (Rp)" in line:
             continue  # Lewati baris yang mengandung informasi ini
-        barang_list.append(line.strip())
+        barang_info = re.split(r'\s{2,}', line)  # Pisahkan berdasarkan spasi panjang
+        if len(barang_info) >= 9:  # Pastikan data memiliki jumlah kolom yang sesuai
+            barang_list.append(barang_info)
     
     return barang_list if barang_list else []
 
@@ -53,7 +54,7 @@ def process_pdf(pdf_file):
         st.error("Gagal mengekstrak data Barang. Pastikan format faktur sesuai.")
         return None
     
-    df = pd.DataFrame({'Barang': barang_data})
+    df = pd.DataFrame(barang_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
     return df
 
 def main():

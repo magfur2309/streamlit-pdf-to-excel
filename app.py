@@ -26,21 +26,25 @@ def extract_data_from_pdf(pdf_file):
             print(f"Halaman {idx + 1}:\n{text}\n")  # Debugging
             if text:
                 try:
+                    # Debugging: Cetak teks halaman
+                    st.text(f"Teks Halaman {idx + 1}:\n{text}")
+                    
                     # Menangkap informasi faktur
                     no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
                     nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     barang_section = re.findall(r'\d+\s+\d+\s+([\w\s\-/]+)\s+Rp ([\d.,]+) x ([\d.,]+) Piece', text)
                     
-                    no_fp = no_fp.group(1) if no_fp else ""
-                    nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
-                    nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
+                    no_fp = no_fp.group(1) if no_fp else "Tidak ditemukan"
+                    nama_penjual = nama_penjual.group(1).strip() if nama_penjual else "Tidak ditemukan"
+                    nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else "Tidak ditemukan"
                     
                     for barang, harga, qty in barang_section:
                         harga = parse_number(harga)
                         qty = parse_number(qty)
                         total = harga * qty
                         unit = "Piece"
+                        print(f"Barang: {barang.strip()}, Harga: {harga}, QTY: {qty}, Total: {total}")  # Debugging
                         data.append([no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total])
                 except Exception as e:
                     st.error(f"Terjadi kesalahan dalam membaca halaman {idx + 1}: {e}")

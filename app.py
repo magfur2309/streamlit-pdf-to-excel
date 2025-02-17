@@ -33,8 +33,8 @@ def extract_data_from_pdf(pdf_file):
                     for barang in barang_pattern:
                         kode_barang = barang[0].strip()
                         nama_barang = barang[1].strip()
-                        harga = int(float(barang[2].replace('.', '').replace(',', '.')))
-                        qty = int(float(barang[3].replace('.', '').replace(',', '.')))
+                        harga = float(barang[2].replace('.', '').replace(',', '.'))
+                        qty = float(barang[3].replace('.', '').replace(',', '.'))
                         unit = barang[4].strip()
                         total = harga * qty
                         

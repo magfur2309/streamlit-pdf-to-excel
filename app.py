@@ -60,6 +60,8 @@ if uploaded_files:
     if all_data:
         df = pd.DataFrame(all_data, columns=["No Faktur", "Nama Penjual", "Nama Pembeli", "No Urut", "Barang", "Harga", "QTY", "Total"])
         df = df.sort_values(by=["No Faktur", "No Urut"]).reset_index(drop=True)
+        # Hapus kolom No Urut (jika ada di posisi tertentu)
+        df = df.drop(columns=["No Urut"], errors="ignore")
         
         st.write("### Pratinjau Data yang Diekstrak")
         st.dataframe(df)

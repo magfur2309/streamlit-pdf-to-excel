@@ -21,7 +21,7 @@ def extract_data_from_pdf(pdf_file):
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     
                     # Hanya menangkap barang setelah "Uang Muka / Termin Jasa (Rp)" jika ada
-                    barang_match = re.findall(r'Nama Barang \s*(.*?)\s*(?=Rp [\d.,]+)', text, re.DOTALL)
+                    barang_match = re.findall(r'Nama Barang Kena Pajak / Jasa Kena Pajak Uang Muka / Termin Jasa (Rp)\s*(.*?)\s*(?=Rp [\d.,]+)', text, re.DOTALL)
                     
                     # Filter untuk menghapus "Uang Muka / Termin Jasa (Rp)"
                     barang_list = [b.strip() for b in barang_match if "Uang Muka / Termin Jasa (Rp)" not in b]

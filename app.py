@@ -12,6 +12,10 @@ def extract_data_from_pdf(pdf_file):
         for page in pdf.pages:
             text = page.extract_text()
             if text:
+                print("\n==== DEBUG: Teks yang diekstrak dari halaman ====\n")
+                print(text)  # DEBUG: Menampilkan teks yang diekstrak
+                print("\n===========================================\n")
+
                 try:
                     # Ekstrak informasi dasar
                     no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
@@ -19,8 +23,12 @@ def extract_data_from_pdf(pdf_file):
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
 
                     # Menangkap semua barang/jasa yang ada di faktur
-                    barang_pattern = re.findall(r'\d+\s+(\d+)\s+([\w\s]+)\s+Rp ([\d.,]+)\s+x\s+([\d.,]+)\s+Piece', text)
-                    
+                    barang_pattern = re.findall(r'(\d+)\s+(.+?)\s+Rp ([\d.,]+)\s+x\s+([\d.,]+)\s+\w+', text)
+
+                    print("\n==== DEBUG: Barang yang ditemukan ====\n")
+                    print(barang_pattern)  # DEBUG: Menampilkan barang yang ditemukan
+                    print("\n===========================================\n")
+
                     if not barang_pattern:
                         continue  # Jika tidak ada barang, skip halaman ini
 

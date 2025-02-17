@@ -12,32 +12,31 @@ def extract_data_from_pdf(pdf_file):
     """
     data = []
     faktur_counter = 1  # Untuk menjaga urutan nomor faktur
+    tanggal_faktur = ""  # Menyimpan tanggal faktur jika ada di halaman berikutnya
     
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
             if text:
                 try:
-                    # Menangkap informasi faktur
-                    no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
-                    nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
-                    nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
-                    tanggal_faktur = re.search(r'(\d{1,2})\s*(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s*(\d{4})', text)
-                    
-                    no_fp = no_fp.group(1) if no_fp else ""
-                    nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
-                    nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
-                    
-                    if tanggal_faktur:
-                        day, month, year = tanggal_faktur.groups()
+                    # Menangkap informasi faktur jika belum ditemukan di halaman sebelumnya
+                    match_tanggal = re.search(r'(\d{1,2})\s*(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s*(\d{4})', text)
+                    if match_tanggal:
+                        day, month, year = match_tanggal.groups()
                         month_mapping = {
                             "Januari": "01", "Februari": "02", "Maret": "03", "April": "04",
                             "Mei": "05", "Juni": "06", "Juli": "07", "Agustus": "08",
                             "September": "09", "Oktober": "10", "November": "11", "Desember": "12"
                         }
                         tanggal_faktur = f"{day.zfill(2)}/{month_mapping.get(month, '00')}/{year}"
-                    else:
-                        tanggal_faktur = ""
+                    
+                    no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
+                    nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
+                    nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
+                    
+                    no_fp = no_fp.group(1) if no_fp else ""
+                    nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
+                    nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
                     
                     # Menangkap informasi barang/jasa dengan berbagai format harga dan qty
                     barang_pattern = re.findall(r'(.*?)\s+Rp ([\d.,]+) x ([\d.,]+) (\w+)', text)
@@ -54,6 +53,12 @@ def extract_data_from_pdf(pdf_file):
                     faktur_counter += 1  # Naikkan counter jika ada faktur baru
                 except Exception as e:
                     st.error(f"Terjadi kesalahan dalam membaca halaman: {e}")
+    
+    # Jika tanggal faktur tetap kosong, set default menjadi 'Tidak ditemukan'
+    for row in data:
+        if row[-1] == "":
+            row[-1] = "Tidak ditemukan"
+    
     return data
 
 # Streamlit UI

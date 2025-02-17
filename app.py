@@ -19,12 +19,12 @@ def extract_data_from_pdf(pdf_file):
                 for row in table:
                     if any(row):  # Pastikan ada data dalam baris
                         try:
-                            # Ambil data berdasarkan kolom yang sesuai
-                            kode_barang = row[0].strip() if row[0] else ""
-                            nama_barang = row[1].strip() if row[1] else ""
-                            harga = float(row[2].replace('.', '').replace(',', '.')) if row[2] else 0.0
-                            qty = float(row[3].replace('.', '').replace(',', '.')) if row[3] else 0.0
-                            unit = row[4].strip() if row[4] else ""
+                            # Pastikan panjang row cukup sebelum mengakses indeks
+                            kode_barang = row[0].strip() if len(row) > 0 and row[0] else ""
+                            nama_barang = row[1].strip() if len(row) > 1 and row[1] else ""
+                            harga = float(row[2].replace('.', '').replace(',', '.')) if len(row) > 2 and row[2] else 0.0
+                            qty = float(row[3].replace('.', '').replace(',', '.')) if len(row) > 3 and row[3] else 0.0
+                            unit = row[4].strip() if len(row) > 4 and row[4] else ""
                             total = harga * qty
 
                             data.append([no_fp, nama_penjual, nama_pembeli, kode_barang, nama_barang, harga, unit, qty, total])

@@ -19,9 +19,10 @@ def extract_data_from_pdf(pdf_file):
                     no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
                     nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
+                    kode_barang = re.search(r'Kode Barang/ Jasa\s*:\s*(.+)', text)
                     
                     # Menangkap informasi barang/jasa tanpa membaca "Uang Muka / Termin Jasa (Rp)"
-                    barang_section = re.search(r'Nama Barang Kena Pajak / Jasa Kena Pajak(.*?)(?=Rp \d{1,3}(?:\.\d{3})*,\d{2} x \d{1,3}(?:\.\d{3})*,\d{2} Bulan)', text, re.DOTALL)
+                    barang_section = re.search(r'Nama Barang Kena Pajak / Jasa Kena Pajak.*?Uang Muka / Termin Jasa \(Rp\)(.*?)\n', text, re.DOTALL)
                     barang = barang_section.group(1).strip() if barang_section else ""
                     
                     harga_qty_match = re.search(r'Rp ([\d.,]+) x ([\d.,]+) Bulan', text)
@@ -34,6 +35,7 @@ def extract_data_from_pdf(pdf_file):
                     no_fp = no_fp.group(1) if no_fp else ""
                     nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
                     nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
+                    kode_barang = kode_barang.group(1).strip() if kode_barang else ""
                     harga = int(float(harga_qty_match.group(1).replace('.', '').replace(',', '.'))) if harga_qty_match else 0
                     qty = int(float(harga_qty_match.group(2).replace('.', '').replace(',', '.'))) if harga_qty_match else 0
                     unit = "Bulan"
@@ -56,7 +58,7 @@ def extract_data_from_pdf(pdf_file):
                         tanggal_faktur = ""
                     
                     if barang:  # Pastikan hanya menyimpan baris yang memiliki barang
-                        data.append([no_fp, nama_penjual, nama_pembeli, barang, harga, unit, qty, total, potongan_harga, ppnbm, dpp, ppn, tanggal_faktur])
+                        data.append([no_fp, nama_penjual, kode_barang, nama_pembeli, barang, harga, unit, qty, total, potongan_harga, ppnbm, dpp, ppn, tanggal_faktur])
                 except Exception as e:
                     st.error(f"Terjadi kesalahan dalam membaca halaman: {e}")
     return data
@@ -75,7 +77,7 @@ if uploaded_files:
             all_data.extend(extracted_data)
     
     if all_data:
-        df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Barang", "Harga", "Unit", "QTY", "Total", "Potongan Harga", "PPnBM", "DPP", "PPN", "Tanggal Faktur"])
+        df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Kode Barang/Jasa", "Nama Pembeli", "Barang", "Harga", "Unit", "QTY", "Total", "Potongan Harga", "PPnBM", "DPP", "PPN", "Tanggal Faktur"])
         
         # Hilangkan baris kosong dan reset index
         df = df[df['Barang'] != ""].reset_index(drop=True)

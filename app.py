@@ -20,8 +20,8 @@ def extract_data_from_pdf(pdf_file):
                     nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
                     nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
                     
-                    # Ekstrak daftar barang/jasa
-                    barang_matches = re.findall(r'(\d+)\s+000000\s+([A-Za-z0-9\s-/,]+)\s+Rp ([\d.,]+) x ([\d.,]+) Piece', text)
+                    # Ekstrak daftar barang/jasa dengan regex yang diperbaiki
+                    barang_matches = re.findall(r'(\d+)\s+000000\s+([A-Za-z0-9\s,./()-]+)\s+Rp ([\d.,]+) x ([\d.,]+) Piece', text)
                     
                     for match in barang_matches:
                         no_urut, barang, harga, qty = match

@@ -8,46 +8,52 @@ from datetime import datetime
 def extract_data_from_pdf(pdf_file):
     """
     Fungsi untuk mengekstrak data dari file PDF dan mengonversinya ke format tabel,
-    menangani banyak halaman dan beberapa tabel dalam satu file.
+    memastikan semua barang dari multi-halaman terbaca dengan akurat.
     """
     data = []
+    no_fp, nama_penjual, nama_pembeli, tanggal_faktur = "", "", "", ""
+    
     with pdfplumber.open(pdf_file) as pdf:
-        for page in pdf.pages:
+        for i, page in enumerate(pdf.pages):
             text = page.extract_text()
-            if text:
-                try:
-                    # Menangkap informasi faktur
-                    no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
-                    nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
-                    nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
-                    tanggal_faktur = re.search(r'KOTA .+, (\d{1,2}) (\w+) (\d{4})', text)
-                    
-                    no_fp = no_fp.group(1) if no_fp else ""
-                    nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
-                    nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
-                    
-                    if tanggal_faktur:
-                        day, month, year = tanggal_faktur.groups()
-                        month_mapping = {
-                            "Januari": "01", "Februari": "02", "Maret": "03", "April": "04",
-                            "Mei": "05", "Juni": "06", "Juli": "07", "Agustus": "08",
-                            "September": "09", "Oktober": "10", "November": "11", "Desember": "12"
-                        }
-                        tanggal_faktur = f"{day.zfill(2)}/{month_mapping.get(month, '00')}/{year}"
-                    else:
-                        tanggal_faktur = ""
-                    
-                    # Menangkap informasi barang/jasa
-                    barang_pattern = re.findall(r'\d+\s+\d+\s+(.+)\s+Rp ([\d.,]+) x ([\d.,]+) (\w+)', text)
-                    for barang_match in barang_pattern:
-                        barang, harga, qty, unit = barang_match
-                        harga = int(float(harga.replace('.', '').replace(',', '.')))
-                        qty = int(float(qty.replace('.', '').replace(',', '.')))
-                        total = harga * qty
-                        
-                        data.append([no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, tanggal_faktur])
-                except Exception as e:
-                    st.error(f"Terjadi kesalahan dalam membaca halaman: {e}")
+            if text and i == 0:  # Ambil data hanya dari halaman pertama
+                match_fp = re.search(r'No\s*Faktur\s*[:\-]?\s*(\d+)', text, re.IGNORECASE)
+                match_penjual = re.search(r'Nama\s*Penjual\s*[:\-]?\s*([\w\s]+)', text, re.IGNORECASE)
+                match_pembeli = re.search(r'Nama\s*Pembeli\s*[:\-]?\s*([\w\s]+)', text, re.IGNORECASE)
+                match_tanggal = re.search(r'Tanggal\s*Faktur\s*[:\-]?\s*(\d{2}/\d{2}/\d{4})', text, re.IGNORECASE)
+                
+                if match_fp:
+                    no_fp = match_fp.group(1).strip()
+                if match_penjual:
+                    nama_penjual = match_penjual.group(1).strip()
+                if match_pembeli:
+                    nama_pembeli = match_pembeli.group(1).strip()
+                if match_tanggal:
+                    tanggal_faktur = match_tanggal.group(1).strip()
+            
+            table = page.extract_table()
+            if table:
+                for row in table:
+                    if any(row):  # Pastikan ada data dalam baris
+                        try:
+                            def convert_to_float(value):
+                                try:
+                                    return float(value.replace('.', '').replace(',', '.')) if value else 0.0
+                                except ValueError:
+                                    return 0.0
+                            
+                            kode_barang = row[0].strip() if len(row) > 0 and row[0] else ""
+                            nama_barang = row[1].strip() if len(row) > 1 and row[1] else ""
+                            harga = convert_to_float(row[2]) if len(row) > 2 else 0.0
+                            qty = convert_to_float(row[3]) if len(row) > 3 else 0.0
+                            unit = row[4].strip() if len(row) > 4 and row[4] else ""
+                            total = harga * qty
+                            dpp = convert_to_float(row[5]) if len(row) > 5 else 0.0
+                            ppn = convert_to_float(row[6]) if len(row) > 6 else 0.0
+                            
+                            data.append([no_fp, nama_penjual, nama_pembeli, kode_barang, nama_barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])
+                        except Exception as e:
+                            st.error(f"Terjadi kesalahan dalam membaca tabel: {e}")
     return data
 
 # Streamlit UI
@@ -64,8 +70,9 @@ if uploaded_files:
             all_data.extend(extracted_data)
     
     if all_data:
-        df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Barang", "Harga", "Unit", "QTY", "Total", "Tanggal Faktur"])
+        df = pd.DataFrame(all_data, columns=["No Faktur", "Nama Penjual", "Nama Pembeli", "Kode Barang", "Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
         
+        # Hilangkan baris kosong dan reset index
         df = df[df['Barang'] != ""].reset_index(drop=True)
         df.index = df.index + 1  # Mulai index dari 1
         

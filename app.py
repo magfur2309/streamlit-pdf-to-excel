@@ -28,6 +28,7 @@ def extract_data_from_pdf(pdf_file):
     text = extract_text_with_ocr(pdf_file)
     
     if text:
+        st.text_area("Teks Mentah yang Diekstrak", text, height=300)
         try:
             # Ekstrak informasi utama
             no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)

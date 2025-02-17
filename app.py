@@ -20,13 +20,17 @@ def extract_data_from_pdf(pdf_file):
                     nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     
-                    # Hanya menangkap barang setelah "Uang Muka / Termin Jasa (Rp)" jika ada
-                    barang_match = re.findall(r'Nama Barang Kena Pajak / Jasa Kena Pajak \s*(.*?)\s*(?=Rp [\d.,]+)', text, re.DOTALL)
+                   # Ekstraksi barang tanpa "Uang Muka / Termin Jasa (Rp)"
+                    barang_match = re.findall(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*(.*?)\s*(?=Rp [\d.,]+)', text, re.DOTALL)
                     
-                    # Filter untuk menghapus "Uang Muka / Termin Jasa (Rp)"
-                    barang_list = [b.strip() for b in barang_match if "Uang Muka / Termin Jasa (Rp)" not in b]
+                    # Membersihkan data barang
+                    barang_list = []
+                    for b in barang_match:
+                        clean_b = re.sub(r'Uang Muka / Termin Jasa \(Rp\)', '', b, flags=re.IGNORECASE).strip()
+                        if clean_b:  # Hanya simpan jika masih ada informasi relevan
+                            barang_list.append(clean_b)
                     
-                    # Gabungkan hasilnya menjadi satu string
+                    # Gabungkan kembali menjadi string
                     barang = ", ".join(barang_list) if barang_list else ""
 
                     

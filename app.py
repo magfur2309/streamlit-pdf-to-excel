@@ -87,6 +87,16 @@ if uploaded_files:
         df = df[df['Barang'] != ""].reset_index(drop=True)
         df['No'] = range(1, len(df) + 1)  # Pastikan nomor urut sesuai dengan jumlah faktur
         
+        # Mengisi kolom "No FP", "Nama Penjual", dan "Nama Pembeli" dari baris kedua dengan data baris pertama jika kosong
+        if not df.empty:
+            first_no_fp = df.loc[0, "No FP"]
+            first_nama_penjual = df.loc[0, "Nama Penjual"]
+            first_nama_pembeli = df.loc[0, "Nama Pembeli"]
+            
+            df.loc[1:, "No FP"] = df.loc[1:, "No FP"].replace("Tidak ditemukan", first_no_fp)
+            df.loc[1:, "Nama Penjual"] = df.loc[1:, "Nama Penjual"].replace("Tidak ditemukan", first_nama_penjual)
+            df.loc[1:, "Nama Pembeli"] = df.loc[1:, "Nama Pembeli"].replace("Tidak ditemukan", first_nama_pembeli)
+        
         # Menampilkan pratinjau data
         st.write("### Pratinjau Data yang Diekstrak")
         st.dataframe(df)

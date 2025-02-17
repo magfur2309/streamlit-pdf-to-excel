@@ -14,6 +14,8 @@ def extract_data_from_pdf(pdf_file):
         for page in pdf.pages:
             text = page.extract_text()
             if text:
+                st.text("Teks yang diekstrak dari PDF:")
+                st.text(text)
                 try:
                     # Menangkap informasi faktur
                     no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)

@@ -11,14 +11,15 @@ def extract_data_from_pdf(pdf_file):
     memastikan semua barang dari multi-halaman terbaca dengan akurat.
     """
     data = []
+    no_fp, nama_penjual, nama_pembeli, tanggal_faktur = "", "", "", ""  # Pastikan nilai ini bertahan antar halaman
+
     with pdfplumber.open(pdf_file) as pdf:
-        no_fp, nama_penjual, nama_pembeli, tanggal_faktur = "", "", "", ""
         for page in pdf.pages:
             text = page.extract_text()
             if text:
                 match_fp = re.search(r'No FP\s*:\s*(\d+)', text)
-                match_penjual = re.search(r'Nama Penjual\s*:\s*(.*)', text)
-                match_pembeli = re.search(r'Nama Pembeli\s*:\s*(.*)', text)
+                match_penjual = re.search(r'Nama Penjual\s*:\s*(.+)', text)
+                match_pembeli = re.search(r'Nama Pembeli\s*:\s*(.+)', text)
                 match_tanggal = re.search(r'Tanggal Faktur\s*:\s*(\d{2}/\d{2}/\d{4})', text)
                 
                 if match_fp:
@@ -29,7 +30,8 @@ def extract_data_from_pdf(pdf_file):
                     nama_pembeli = match_pembeli.group(1).strip()
                 if match_tanggal:
                     tanggal_faktur = match_tanggal.group(1)
-            
+
+            # Cek apakah tabel ada di halaman ini
             table = page.extract_table()
             if table:
                 for row in table:
@@ -49,10 +51,12 @@ def extract_data_from_pdf(pdf_file):
                             total = harga * qty
                             dpp = convert_to_float(row[5]) if len(row) > 5 else 0.0
                             ppn = convert_to_float(row[6]) if len(row) > 6 else 0.0
-                            
+
+                            # Pastikan No FP, Nama Penjual, dan Nama Pembeli tetap terbawa ke setiap baris
                             data.append([no_fp, nama_penjual, nama_pembeli, kode_barang, nama_barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])
                         except Exception as e:
                             st.error(f"Terjadi kesalahan dalam membaca tabel: {e}")
+
     return data
 
 # Streamlit UI

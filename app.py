@@ -12,7 +12,7 @@ def extract_data_from_pdf(pdf_file):
     """
     data = []
     with pdfplumber.open(pdf_file) as pdf:
-        no_fp, nama_penjual, nama_pembeli = "", "", ""
+        no_fp, nama_penjual, nama_pembeli, tanggal_faktur = "", "", "", ""
         for page in pdf.pages:
             table = page.extract_table()
             if table:
@@ -34,8 +34,11 @@ def extract_data_from_pdf(pdf_file):
                             qty = convert_to_float(row[3]) if len(row) > 3 else 0.0
                             unit = row[4].strip() if len(row) > 4 and row[4] else ""
                             total = harga * qty
+                            dpp = convert_to_float(row[5]) if len(row) > 5 else 0.0
+                            ppn = convert_to_float(row[6]) if len(row) > 6 else 0.0
+                            tanggal_faktur = row[7].strip() if len(row) > 7 and row[7] else ""
 
-                            data.append([no_fp, nama_penjual, nama_pembeli, kode_barang, nama_barang, harga, unit, qty, total])
+                            data.append([no_fp, nama_penjual, nama_pembeli, kode_barang, nama_barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])
                         except Exception as e:
                             st.error(f"Terjadi kesalahan dalam membaca tabel: {e}")
     return data
@@ -54,7 +57,7 @@ if uploaded_files:
             all_data.extend(extracted_data)
     
     if all_data:
-        df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Kode Barang", "Barang", "Harga", "Unit", "QTY", "Total"])
+        df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Kode Barang", "Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
         
         # Hilangkan baris kosong dan reset index
         df = df[df['Barang'] != ""].reset_index(drop=True)

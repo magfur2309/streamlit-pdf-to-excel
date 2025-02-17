@@ -20,22 +20,9 @@ def extract_data_from_pdf(pdf_file):
                     nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     
-                    # Mencari tabel dengan header "Nama Barang Kena Pajak / Jasa Kena Pajak"
-                    table_start = re.search(r'Nama Barang Kena Pajak / Jasa Kena Pajak', text)
-                    if table_start:
-                        barang_text = text[table_start.end():].strip()
-                        barang_lines = barang_text.split('\n')
-                        barang = []
-                        
-                        for line in barang_lines:
-                            if re.search(r'Jumlah PPN', line):
-                                break  # Berhenti jika sudah sampai bagian pajak
-                            if not re.search(r'Uang Muka / Termin', line, re.IGNORECASE):
-                                barang.append(line.strip())
-                        
-                        barang = ' '.join(barang)
-                    else:
-                        barang = ""
+                    # Menangkap nama barang lebih akurat dan menghindari "Uang Muka / Termin Jasa (Rp)"
+                    barang_match = re.findall(r'Nama Barang Kena Pajak / Jasa Kena Pajak\s*(.*?)\s*(?=Rp [\d.,]+)', text, re.DOTALL)
+                    barang = ", ".join([b.strip() for b in barang_match if "Uang Muka / Termin Jasa" not in b]) if barang_match else ""
                     
                     harga_qty_match = re.search(r'Rp ([\d.,]+) x ([\d.,]+) Bulan', text)
                     dpp = re.search(r'Dasar Pengenaan Pajak\s*([\d.,]+)', text)
@@ -64,7 +51,7 @@ def extract_data_from_pdf(pdf_file):
                     else:
                         tanggal_faktur = ""
                     
-                    if barang:  # Hanya menyimpan barang yang relevan
+                    if barang:  # Pastikan hanya menyimpan baris yang memiliki barang
                         data.append([no_fp, nama_penjual, nama_pembeli, barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur])
                 except Exception as e:
                     st.error(f"Terjadi kesalahan dalam membaca halaman: {e}")
@@ -101,6 +88,6 @@ if uploaded_files:
             writer.close()
         output.seek(0)
         
-        st.download_button(label="💾 Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.download_button(label="📥 Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
         st.error("Gagal mengekstrak data. Pastikan format faktur sesuai.")

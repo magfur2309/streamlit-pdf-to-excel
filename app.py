@@ -8,18 +8,26 @@ from pdf2image import convert_from_bytes
 from datetime import datetime
 
 def extract_text_from_pdf(pdf_file):
-    """Fungsi untuk mengekstrak teks dari PDF, termasuk OCR jika diperlukan"""
+    """Fungsi untuk mengekstrak teks dari PDF, menggunakan OCR jika diperlukan"""
     text = ""
-    with pdfplumber.open(pdf_file) as pdf:
-        for page in pdf.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text += page_text + "\n"
-    
-    if not text.strip():  # Jika tidak ada teks, gunakan OCR
-        images = convert_from_bytes(pdf_file.read())
-        text = "\n".join([pytesseract.image_to_string(img) for img in images])
-    
+
+    try:
+        pdf_data = io.BytesIO(pdf_file.read())  # Pastikan PDF dapat dibaca ulang
+        with pdfplumber.open(pdf_data) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + "\n"
+        
+        # Jika teks kosong, gunakan OCR
+        if not text.strip():
+            pdf_data.seek(0)  # Reset buffer untuk OCR
+            images = convert_from_bytes(pdf_data.read())
+            text = "\n".join([pytesseract.image_to_string(img) for img in images])
+
+    except Exception as e:
+        st.error(f"Terjadi kesalahan dalam membaca PDF: {e}")
+
     return text
 
 def extract_data_from_text(text):
@@ -70,6 +78,11 @@ if uploaded_files:
     
     for uploaded_file in uploaded_files:
         text = extract_text_from_pdf(uploaded_file)
+        
+        if not text.strip():
+            st.error("Gagal mengekstrak teks dari PDF. Pastikan PDF berisi teks yang dapat disalin atau gunakan file hasil scan dengan OCR.")
+            continue  # Lewati file jika tidak dapat diproses
+
         extracted_data = extract_data_from_text(text)
         if extracted_data:
             all_data.extend(extracted_data)

@@ -43,7 +43,7 @@ def extract_data_from_pdf(pdf_file):
             tanggal_faktur = f"{tanggal_faktur.group(1).zfill(2)}/{month_mapping.get(tanggal_faktur.group(2), '00')}/{tanggal_faktur.group(3)}" if tanggal_faktur else ""
             
             # Ekstrak barang/jasa sesuai urutan tabel
-            barang_pattern = re.findall(r'(\d+)\s+000000\s+(.+?)\nRp ([\d.,]+) x ([\d.,]+) ([\w]+)', text)
+            barang_pattern = re.findall(r'\n(\d+)\s+\d+\s+(.+?)\nRp ([\d.,]+) x ([\d.,]+) ([\w]+)', text)
             for idx, barang_match in enumerate(barang_pattern, start=1):
                 no, barang, harga, qty, unit = barang_match
                 harga = int(float(harga.replace('.', '').replace(',', '.')))

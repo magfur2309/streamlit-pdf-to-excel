@@ -4,4 +4,3 @@ pdfplumber
 xlsxwriter
 pdf2image
 pytesseract
-pip install pytesseract

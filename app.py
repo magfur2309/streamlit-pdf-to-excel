@@ -22,8 +22,16 @@ def extract_data_from_pdf(pdf_file):
                             # Pastikan panjang row cukup sebelum mengakses indeks
                             kode_barang = row[0].strip() if len(row) > 0 and row[0] else ""
                             nama_barang = row[1].strip() if len(row) > 1 and row[1] else ""
-                            harga = float(row[2].replace('.', '').replace(',', '.')) if len(row) > 2 and row[2] else 0.0
-                            qty = float(row[3].replace('.', '').replace(',', '.')) if len(row) > 3 and row[3] else 0.0
+                            
+                            # Menghindari error saat konversi string ke float
+                            def convert_to_float(value):
+                                try:
+                                    return float(value.replace('.', '').replace(',', '.')) if value else 0.0
+                                except ValueError:
+                                    return 0.0
+                            
+                            harga = convert_to_float(row[2]) if len(row) > 2 else 0.0
+                            qty = convert_to_float(row[3]) if len(row) > 3 else 0.0
                             unit = row[4].strip() if len(row) > 4 and row[4] else ""
                             total = harga * qty
 

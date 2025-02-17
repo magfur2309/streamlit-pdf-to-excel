@@ -14,7 +14,7 @@ def extract_text_with_ocr(pdf_file):
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
-            if not text:  # Jika teks kosong, gunakan OCR
+            if not text or len(text.strip()) == 0:  # Jika teks kosong, gunakan OCR
                 image = page.to_image()
                 text = pytesseract.image_to_string(image.original)
             extracted_text += text + "\n"
@@ -42,12 +42,17 @@ def extract_data_from_pdf(pdf_file):
             month_mapping = {"Januari": "01", "Februari": "02", "Maret": "03", "April": "04", "Mei": "05", "Juni": "06", "Juli": "07", "Agustus": "08", "September": "09", "Oktober": "10", "November": "11", "Desember": "12"}
             tanggal_faktur = f"{tanggal_faktur.group(1).zfill(2)}/{month_mapping.get(tanggal_faktur.group(2), '00')}/{tanggal_faktur.group(3)}" if tanggal_faktur else ""
             
-            # Ekstrak barang/jasa sesuai urutan tabel
-            barang_pattern = re.findall(r'\n(\d+)\s+\d+\s+(.+?)\nRp ([\d.,]+) x ([\d.,]+) ([\w]+)', text)
+            # Ekstrak barang/jasa sesuai urutan tabel dengan regex yang lebih fleksibel
+            barang_pattern = re.findall(r'\n(\d+)\s+\d+\s+(.+?)\s+Rp ([\d.,]+) x ([\d.,]+) ([\w]+)', text)
+            
             for idx, barang_match in enumerate(barang_pattern, start=1):
                 no, barang, harga, qty, unit = barang_match
-                harga = int(float(harga.replace('.', '').replace(',', '.')))
-                qty = int(float(qty.replace('.', '').replace(',', '.')))
+                try:
+                    harga = int(float(harga.replace('.', '').replace(',', '.')))
+                    qty = int(float(qty.replace('.', '').replace(',', '.')))
+                except ValueError:
+                    continue  # Lewati jika format angka salah
+                
                 total = harga * qty
                 dpp = total / 1.11  # Asumsi PPN 11%
                 ppn = total - dpp

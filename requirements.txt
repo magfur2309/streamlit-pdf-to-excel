@@ -1,6 +1,7 @@
-streamlit
-pandas
 pdfplumber
-xlsxwriter
-pdf2image
+pandas
+streamlit
 pytesseract
+pdf2image
+pillow
+xlsxwriter

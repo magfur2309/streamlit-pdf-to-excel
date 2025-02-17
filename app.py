@@ -19,7 +19,7 @@ def extract_table_from_pdf(pdf_file):
                 tables = page.extract_table()
                 if tables:
                     for row in tables:
-                        if row and not any("Uang Muka / Termin Jasa (Rp)" in str(cell) for cell in row):
+                        if row and len(row) == 10 and not any("Uang Muka / Termin Jasa (Rp)" in str(cell) for cell in row):
                             extracted_data.append(row)
     except Exception as e:
         st.error(f"Error saat membaca PDF: {e}")
@@ -33,7 +33,15 @@ def process_pdf(pdf_file):
         st.error("Gagal mengekstrak data Barang. Pastikan format faktur sesuai.")
         return None
     
-    df = pd.DataFrame(data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
+    # Debugging: Tampilkan isi data sebelum dibuat DataFrame
+    st.write("Data mentah dari PDF:", data)
+    
+    try:
+        df = pd.DataFrame(data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
+    except ValueError as e:
+        st.error(f"Kesalahan dalam pembuatan DataFrame: {e}")
+        return None
+    
     return df
 
 def main():

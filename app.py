@@ -13,26 +13,43 @@ def extract_data_from_pdf(pdf_file):
     data = []
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
-            table = page.extract_table()
-            if table:
-                for row in table:
-                    if any(row):  # Pastikan baris tidak kosong
-                        try:
-                            no_fp = row[0] if row[0] else ""
-                            nama_penjual = row[1] if row[1] else ""
-                            nama_pembeli = row[2] if row[2] else ""
-                            barang = row[3] if row[3] else ""
-                            harga = int(float(row[4].replace('.', '').replace(',', '.'))) if row[4] else 0
-                            unit = row[5] if row[5] else ""
-                            qty = int(float(row[6].replace('.', '').replace(',', '.'))) if row[6] else 0
-                            total = harga * qty
-                            dpp = total / 1.11  # Menghitung DPP dengan asumsi PPN 11%
-                            ppn = total - dpp
-                            tanggal_faktur = row[7] if row[7] else ""
-                            
-                            data.append([no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur])
-                        except Exception as e:
-                            st.error(f"Kesalahan dalam membaca baris: {e}")
+            text = page.extract_text()
+            if text:
+                try:
+                    # Menangkap informasi faktur
+                    no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
+                    nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
+                    nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
+                    tanggal_faktur = re.search(r'KOTA .+, (\d{1,2}) (\w+) (\d{4})', text)
+                    
+                    no_fp = no_fp.group(1) if no_fp else ""
+                    nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
+                    nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
+                    
+                    if tanggal_faktur:
+                        day, month, year = tanggal_faktur.groups()
+                        month_mapping = {
+                            "Januari": "01", "Februari": "02", "Maret": "03", "April": "04",
+                            "Mei": "05", "Juni": "06", "Juli": "07", "Agustus": "08",
+                            "September": "09", "Oktober": "10", "November": "11", "Desember": "12"
+                        }
+                        tanggal_faktur = f"{day.zfill(2)}/{month_mapping.get(month, '00')}/{year}"
+                    else:
+                        tanggal_faktur = ""
+                    
+                    # Menangkap informasi barang/jasa
+                    barang_pattern = re.findall(r'\d+\s+(.+)\s+Rp ([\d.,]+) x ([\d.,]+) (\w+)', text)
+                    for idx, barang_match in enumerate(barang_pattern, start=1):
+                        barang, harga, qty, unit = barang_match
+                        harga = int(float(harga.replace('.', '').replace(',', '.')))
+                        qty = int(float(qty.replace('.', '').replace(',', '.')))
+                        total = harga * qty
+                        dpp = total / 1.11  # Menghitung DPP dengan asumsi PPN 11%
+                        ppn = total - dpp
+                        
+                        data.append([idx, no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur])
+                except Exception as e:
+                    st.error(f"Terjadi kesalahan dalam membaca halaman: {e}")
     return data
 
 # Streamlit UI
@@ -49,8 +66,10 @@ if uploaded_files:
             all_data.extend(extracted_data)
     
     if all_data:
-        df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
-        df.insert(0, "No", range(1, len(df) + 1))  # Tambah kolom No di paling kiri
+        df = pd.DataFrame(all_data, columns=["No", "No FP", "Nama Penjual", "Nama Pembeli", "Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
+        
+        df = df[df['Barang'] != ""].reset_index(drop=True)
+        df.index = df.index + 1  # Mulai index dari 1
         
         # Menampilkan pratinjau data
         st.write("### Pratinjau Data yang Diekstrak")
@@ -59,7 +78,7 @@ if uploaded_files:
         # Simpan ke Excel
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Faktur Pajak')
+            df.to_excel(writer, index=True, sheet_name='Faktur Pajak')
             writer.close()
         output.seek(0)
         

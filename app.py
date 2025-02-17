@@ -12,15 +12,15 @@ def extract_data_from_pdf(pdf_file):
     """
     data = []
     faktur_counter = 1  # Untuk menjaga urutan nomor faktur
-    tanggal_faktur = ""  # Menyimpan tanggal faktur jika ada di halaman berikutnya
+    tanggal_faktur = None  # Menyimpan tanggal faktur jika ada di halaman berikutnya
     
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
             if text:
                 try:
-                    # Menangkap informasi faktur jika belum ditemukan di halaman sebelumnya
-                    match_tanggal = re.search(r'(\d{1,2})\s*(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s*(\d{4})', text)
+                    # Mencari tanggal faktur di setiap halaman
+                    match_tanggal = re.search(r'KOTA ADM\.\s*[A-Z ]+,\s*(\d{1,2})\s*(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s*(\d{4})', text)
                     if match_tanggal:
                         day, month, year = match_tanggal.groups()
                         month_mapping = {
@@ -48,16 +48,11 @@ def extract_data_from_pdf(pdf_file):
                         dpp = total / 1.11  # Menghitung DPP dengan asumsi PPN 11%
                         ppn = total - dpp
                         
-                        data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur])
+                        data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
                     
                     faktur_counter += 1  # Naikkan counter jika ada faktur baru
                 except Exception as e:
                     st.error(f"Terjadi kesalahan dalam membaca halaman: {e}")
-    
-    # Jika tanggal faktur tetap kosong, set default menjadi 'Tidak ditemukan'
-    for row in data:
-        if row[-1] == "":
-            row[-1] = "Tidak ditemukan"
     
     return data
 

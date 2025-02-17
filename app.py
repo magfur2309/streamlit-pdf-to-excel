@@ -6,7 +6,7 @@ import re
 
 def extract_data_from_pdf(pdf_file):
     """
-    Fungsi untuk mengekstrak data dari faktur pajak PDF.
+    Fungsi untuk mengekstrak data dari faktur pajak PDF, termasuk nama barang sesuai urutan tabel.
     """
     data = []
     with pdfplumber.open(pdf_file) as pdf:
@@ -27,17 +27,17 @@ def extract_data_from_pdf(pdf_file):
                     month_mapping = {"Januari": "01", "Februari": "02", "Maret": "03", "April": "04", "Mei": "05", "Juni": "06", "Juli": "07", "Agustus": "08", "September": "09", "Oktober": "10", "November": "11", "Desember": "12"}
                     tanggal_faktur = f"{tanggal_faktur.group(1).zfill(2)}/{month_mapping.get(tanggal_faktur.group(2), '00')}/{tanggal_faktur.group(3)}" if tanggal_faktur else ""
                     
-                    # Ekstrak barang/jasa
-                    barang_pattern = re.findall(r'(\w{5,})\nRp ([\d.,]+) x ([\d.,]+) (\w+)', text)
+                    # Ekstrak barang/jasa sesuai urutan tabel
+                    barang_pattern = re.findall(r'(\d+)\s+000000\s+(.+?)\nRp ([\d.,]+) x ([\d.,]+) ([\w]+)', text)
                     for idx, barang_match in enumerate(barang_pattern, start=1):
-                        barang, harga, qty, unit = barang_match
+                        no, barang, harga, qty, unit = barang_match
                         harga = int(float(harga.replace('.', '').replace(',', '.')))
                         qty = int(float(qty.replace('.', '').replace(',', '.')))
                         total = harga * qty
                         dpp = total / 1.11  # Asumsi PPN 11%
                         ppn = total - dpp
                         
-                        data.append([idx, no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur])
+                        data.append([no, no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur])
                 except Exception as e:
                     st.error(f"Terjadi kesalahan dalam membaca halaman: {e}")
     return data

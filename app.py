@@ -20,8 +20,8 @@ def extract_data_from_pdf(pdf_file):
                     nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     
-                    # Menangkap informasi barang/jasa tanpa membaca Uang Muka / Termin Jasa (Rp)
-                    barang_section = re.search(r'Nama Barang Kena Pajak / Jasa Kena Pajak(.*?)(?=Potongan Harga|PPnBM)', text, re.DOTALL)
+                    # Menangkap informasi barang/jasa tanpa membaca "Uang Muka / Termin Jasa (Rp)"
+                    barang_section = re.search(r'Nama Barang Kena Pajak / Jasa Kena Pajak(.*?)(?=Rp \d{1,3}(?:\.\d{3})*,\d{2} x \d{1,3}(?:\.\d{3})*,\d{2} Bulan)', text, re.DOTALL)
                     barang = barang_section.group(1).strip() if barang_section else ""
                     
                     harga_qty_match = re.search(r'Rp ([\d.,]+) x ([\d.,]+) Bulan', text)

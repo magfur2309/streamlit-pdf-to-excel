@@ -20,16 +20,22 @@ def extract_data_from_pdf(pdf_file):
                     nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     
-                    # Menangkap informasi barang setelah "Uang Muka / Termin Jasa (Rp)"
-                    barang_match = re.search(r'Uang Muka / Termin Jasa \(Rp\)\s*(.*)', text, re.DOTALL)
-                    if barang_match:
-                        barang = barang_match.group(1).strip()
+                    # Mencari tabel dengan header "Nama Barang Kena Pajak / Jasa Kena Pajak"
+                    table_start = re.search(r'Nama Barang Kena Pajak / Jasa Kena Pajak', text)
+                    if table_start:
+                        barang_text = text[table_start.end():].strip()
+                        barang_lines = barang_text.split('\n')
+                        barang = []
+                        
+                        for line in barang_lines:
+                            if re.search(r'Jumlah PPN', line):
+                                break  # Berhenti jika sudah sampai bagian pajak
+                            if not re.search(r'Uang Muka / Termin', line, re.IGNORECASE):
+                                barang.append(line.strip())
+                        
+                        barang = ' '.join(barang)
                     else:
                         barang = ""
-                    
-                    # Hapus frasa "Uang Muka / Termin Jasa (Rp)" dan hanya ambil "Maintenance dan Support Online"
-                    barang = re.sub(r'^Uang Muka / Termin Jasa \(Rp\)\s*', '', barang).strip()
-                    barang = re.sub(r'^.*?(Maintenance dan Support Online.*?)$', r'\1', barang, flags=re.DOTALL).strip()
                     
                     harga_qty_match = re.search(r'Rp ([\d.,]+) x ([\d.,]+) Bulan', text)
                     dpp = re.search(r'Dasar Pengenaan Pajak\s*([\d.,]+)', text)
@@ -95,6 +101,6 @@ if uploaded_files:
             writer.close()
         output.seek(0)
         
-        st.download_button(label="\ud83d\udcbe Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.download_button(label="💾 Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
         st.error("Gagal mengekstrak data. Pastikan format faktur sesuai.")

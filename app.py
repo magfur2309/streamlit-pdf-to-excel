@@ -1,7 +1,5 @@
-import streamlit as st
-import pandas as pd
 import pdfplumber
-import io
+import pandas as pd
 import re
 
 def extract_data_from_pdf(pdf_file):
@@ -10,13 +8,13 @@ def extract_data_from_pdf(pdf_file):
     """
     data = []
     full_text = ""
-    
+
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
             if text:
                 full_text += text + "\n"
-    
+
     try:
         # Menangkap informasi faktur
         no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', full_text)
@@ -33,44 +31,37 @@ def extract_data_from_pdf(pdf_file):
             qty = int(float(qty.replace('.', '').replace(',', '.')))
             total = harga * qty
 
-            data.append([no_fp.group(1) if no_fp else "",
-                         nama_penjual.group(1).strip() if nama_penjual else "",
-                         nama_pembeli.group(1).strip() if nama_pembeli else "",
-                         barang.strip(),
-                         harga, "Piece", qty, total])
+            # Struktur data sesuai format tabel yang diinginkan
+            data.append([
+                no_fp.group(1) if no_fp else "",  # No Faktur
+                nama_penjual.group(1).strip() if nama_penjual else "",  # Nama Penjual
+                nama_pembeli.group(1).strip() if nama_pembeli else "",  # Nama Pembeli
+                barang.strip(),  # Barang
+                harga,  # Harga
+                "Piece",  # Unit
+                qty,  # QTY
+                total,  # Total
+                "",  # DPP (Opsional, bisa diisi jika ada regex yang menangkapnya)
+                "",  # PPN (Opsional, bisa diisi jika ada regex yang menangkapnya)
+                ""   # Tanggal Faktur (Opsional)
+            ])
+
     except Exception as e:
-        st.error(f"Terjadi kesalahan dalam membaca file: {e}")
+        print(f"Terjadi kesalahan dalam membaca file: {e}")
 
     return data
 
+# Contoh pemrosesan PDF
+pdf_file_path = "OutputTaxInvoice.pdf"  # Ubah sesuai dengan lokasi file
+all_data = extract_data_from_pdf(pdf_file_path)
 
-# Streamlit UI
-st.title("Ekstraksi Faktur Pajak PDF ke Excel")
+# Buat DataFrame dengan susunan kolom yang sesuai
+df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
 
-uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF, bisa lebih dari satu)", type=["pdf"], accept_multiple_files=True)
+# Tambahkan kolom "No" sebagai nomor urut di paling kiri
+df.insert(0, "No", range(1, len(df) + 1))
 
-if uploaded_files:
-    all_data = []
-    
-    for uploaded_file in uploaded_files:
-        extracted_data = extract_data_from_pdf(uploaded_file)
-        if extracted_data:
-            all_data.extend(extracted_data)
-    
-    if all_data:
-        df = pd.DataFrame(all_data, columns=["No Faktur", "Nama Penjual", "Nama Pembeli", "No Urut", "Barang", "Harga", "QTY", "Total"])
-        df = df.sort_values(by=["No Faktur", "No Urut"]).reset_index(drop=True)
-        # Hapus kolom No Urut (jika ada di posisi tertentu)
-        df = df.drop(columns=["No Urut"], errors="ignore")
-        st.write("### Pratinjau Data yang Diekstrak")
-        st.dataframe(df)
-        
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Faktur Pajak')
-            writer.close()
-        output.seek(0)
-        
-        st.download_button(label="📥 Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    else:
-        st.error("Gagal mengekstrak data. Pastikan format faktur sesuai.")
+# Simpan hasil ke Excel
+df.to_excel("output.xlsx", index=False)
+
+print("Proses ekstraksi selesai. File telah disimpan sebagai output.xlsx")

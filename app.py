@@ -51,6 +51,12 @@ def extract_data_from_pdf(pdf_file):
                         
                         data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
                     
+                    # Pastikan setiap faktur memiliki tanggal faktur yang benar
+                    if data and tanggal_faktur:
+                        for row in data:
+                            if row[11] == "Tidak ditemukan":
+                                row[11] = tanggal_faktur
+                    
                     faktur_counter += 1  # Naikkan counter jika ada faktur baru
                 except Exception as e:
                     st.error(f"Terjadi kesalahan dalam membaca halaman: {e}")

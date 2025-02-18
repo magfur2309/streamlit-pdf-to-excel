@@ -38,13 +38,13 @@ def extract_data_from_pdf(pdf_file):
                     day, month, year = date_match.groups()
                     tanggal_faktur = f"{year}-{month_mapping[month]}-{day.zfill(2)}"
                 
-                # Ambil Nama Penjual
-                penjual_match = re.search(r'Nama\s*:\s*([\w\s\-.,&]+)', text)
+                # Ambil Nama Penjual tanpa alamat
+                penjual_match = re.search(r'Nama\s*:\s*([\w\s\-.,&]+)\nAlamat', text)
                 if penjual_match:
                     nama_penjual = penjual_match.group(1).strip()
                 
-                # Ambil Nama Pembeli
-                pembeli_match = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*([\w\s\-.,&]+)', text)
+                # Ambil Nama Pembeli tanpa alamat
+                pembeli_match = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*([\w\s\-.,&]+)\nAlamat', text)
                 if pembeli_match:
                     nama_pembeli = pembeli_match.group(1).strip()
             

@@ -6,8 +6,8 @@ import re
 
 # Dummy user database (For demo purposes)
 USER_CREDENTIALS = {
-    "admin": "bismillah",  # Super Admin account
-    "demo": "123456"      # Demo User account
+    "super_admin": "admin_password",  # Super Admin account
+    "demo_user": "demo_password"      # Demo User account
 }
 
 # Function to check if user is logged in
@@ -95,8 +95,11 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
 st.title("Konversi Faktur Pajak PDF ke Excel")
 
 # Check if user is logged in
-if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
-    # Login form
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False  # Initialize the session state
+
+# If user is not logged in, show the login form
+if not st.session_state["logged_in"]:
     with st.form(key='login_form'):
         st.subheader("Login")
         username = st.text_input("Username")

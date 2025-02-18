@@ -117,7 +117,6 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         previous_row = item
     return data
 
-
 # Display login form if user is not authenticated
 if not st.session_state['user_authenticated']:
     # Form layout for login

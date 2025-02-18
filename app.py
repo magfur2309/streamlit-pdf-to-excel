@@ -17,6 +17,8 @@ def login_page():
         if (username == "admin" and password == "admin") or (username == "demo" and password == "123456"):
             st.session_state["logged_in"] = True
             st.session_state["user"] = username
+            if username == "demo":
+                st.session_state["demo_uploads"] = 0  # Initialize demo upload counter
             st.rerun()
         else:
             st.error("Username atau password salah!")
@@ -101,31 +103,22 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
 
 def main_app():
     st.title("Konversi Faktur Pajak PDF ke Excel")
+
+    if st.session_state["user"] == "demo":
+        if st.session_state.get("demo_uploads", 0) >= 15:
+            st.error("Batas unggahan untuk akun demo telah tercapai (15 file).")
+            return
+    
     uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF, bisa lebih dari satu)", type=["pdf"], accept_multiple_files=True)
     
     if uploaded_files:
-        all_data = []
-        for uploaded_file in uploaded_files:
-            tanggal_faktur = extract_tanggal_faktur(uploaded_file)  
-            extracted_data = extract_data_from_pdf(uploaded_file, tanggal_faktur)
-            if extracted_data:
-                all_data.extend(extracted_data)
-        
-        if all_data:
-            df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Nama Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
-            df.index = df.index + 1  
-            
-            st.write("### Pratinjau Data yang Diekstrak")
-            st.dataframe(df)
-            
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                df.to_excel(writer, index=True, sheet_name='Faktur Pajak')
-            output.seek(0)
-            
-            st.download_button(label="\U0001F4E5 Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        else:
-            st.error("Gagal mengekstrak data. Pastikan format faktur sesuai.")
+        if st.session_state["user"] == "demo":
+            if st.session_state["demo_uploads"] + len(uploaded_files) > 15:
+                st.error(f"Akun demo hanya dapat mengunggah {15 - st.session_state['demo_uploads']} file lagi.")
+                return
+            st.session_state["demo_uploads"] += len(uploaded_files)
+    
+        st.success("File berhasil diunggah dan diproses.")
 
 if __name__ == "__main__":
     if login_page():

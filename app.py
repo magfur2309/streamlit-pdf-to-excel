@@ -20,7 +20,7 @@ def extract_data_from_pdf(pdf_file):
     }
     
     with pdfplumber.open(pdf_file) as pdf:
-        for i, page in enumerate(pdf.pages):
+        for page in pdf.pages:
             text = page.extract_text()
             if text:
                 # Ambil No FP
@@ -28,12 +28,11 @@ def extract_data_from_pdf(pdf_file):
                 if no_fp_match:
                     no_fp = no_fp_match.group(1)
                 
-                # Ambil Tanggal Faktur (pada halaman terakhir)
-                if i == len(pdf.pages) - 1:
-                    date_match = re.search(r'\b(\d{1,2})\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s+(\d{4})\b', text)
-                    if date_match:
-                        day, month, year = date_match.groups()
-                        tanggal_faktur = f"{year}-{month_mapping[month]}-{day.zfill(2)}"
+                # Ambil Tanggal Faktur (dari halaman mana saja)
+                date_match = re.search(r'\b(\d{1,2})\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s+(\d{4})\b', text)
+                if date_match and not tanggal_faktur:
+                    day, month, year = date_match.groups()
+                    tanggal_faktur = f"{year}-{month_mapping[month]}-{day.zfill(2)}"
                 
                 # Ambil Nama Penjual
                 penjual_match = re.search(r'Nama\s*:\s*([\w\s\-.,&]+)\nAlamat', text)
@@ -78,6 +77,7 @@ def extract_data_from_pdf(pdf_file):
                         ])
     return data
 
+
 # Streamlit UI
 st.title("Konversi Faktur Pajak PDF ke Excel")
 
@@ -96,10 +96,6 @@ if uploaded_files:
         
         df.index = df.index + 1  # Mulai index dari 1
         
-        # Jika tanggal faktur hanya ditemukan di halaman terakhir, terapkan ke semua baris
-        if "Tidak ditemukan" in df["Tanggal Faktur"].values and df["Tanggal Faktur"].iloc[-1] != "Tidak ditemukan":
-            df["Tanggal Faktur"] = df["Tanggal Faktur"].replace("Tidak ditemukan", df["Tanggal Faktur"].iloc[-1])
-        
         # Menampilkan pratinjau data
         st.write("### Pratinjau Data yang Diekstrak")
         st.dataframe(df)
@@ -113,4 +109,6 @@ if uploaded_files:
         
         st.download_button(label="📥 Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
+        st.error("Gagal mengekstrak data. Pastikan format faktur sesuai.")
+
         st.error("Gagal mengekstrak data. Pastikan format faktur sesuai.")

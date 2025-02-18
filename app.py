@@ -53,7 +53,9 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                             previous_row[2] += " " + " ".join(row[2].split("\n")).strip()
                             continue
                         
-                        nama_barang = " ".join(row[2].split("\n")).strip()
+                        cleaned_lines = [line for line in row[2].split("\n") if not re.search(r'Rp\s[\d,.]+|PPnBM|Potongan Harga', line)]
+                        nama_barang = " ".join(cleaned_lines).strip()
+                        
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         if harga_qty_info:
                             harga = int(float(harga_qty_info.group(1).replace('.', '').replace(',', '.')))
@@ -100,7 +102,6 @@ if uploaded_files:
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df.to_excel(writer, index=True, sheet_name='Faktur Pajak')
-            writer.close()
         output.seek(0)
         
         st.download_button(label="📥 Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

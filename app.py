@@ -7,11 +7,13 @@ from datetime import datetime
 
 def extract_data_from_pdf(pdf_file):
     """
-    Fungsi untuk mengekstrak data dari file PDF dan memastikan tanggal faktur
-    berasal dari halaman terakhir jika terdapat beberapa halaman dalam satu file.
+    Fungsi untuk mengekstrak data dari file PDF dan mengonversinya ke format tabel,
+    menangani banyak halaman dan beberapa tabel dalam satu file.
     """
     data = []
-    tanggal_faktur = None  # Tanggal faktur akan terus diperbarui hingga halaman terakhir
+    temp_data = []  # Menyimpan data sebelum memasukkannya ke list utama
+    faktur_counter = 1  # Untuk menjaga urutan nomor faktur
+    tanggal_faktur = None  # Menyimpan tanggal faktur jika ada di halaman berikutnya
     nama_penjual = None
     nama_pembeli = None
     no_fp = None
@@ -23,7 +25,7 @@ def extract_data_from_pdf(pdf_file):
     }
     
     with pdfplumber.open(pdf_file) as pdf:
-        for page_index, page in enumerate(pdf.pages):
+        for page in pdf.pages:
             text = page.extract_text()
             if text:
                 # Ambil No FP
@@ -31,11 +33,11 @@ def extract_data_from_pdf(pdf_file):
                 if no_fp_match:
                     no_fp = no_fp_match.group(1)
                 
-                # Ambil Tanggal Faktur (hanya simpan yang terakhir)
+                # Ambil Tanggal Faktur dari Halaman Terakhir
                 date_match = re.search(r'\b(\d{1,2})\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s+(\d{4})\b', text)
                 if date_match:
                     day, month, year = date_match.groups()
-                    tanggal_faktur = f"{year}-{month_mapping[month]}-{day.zfill(2)}"  # Selalu diperbarui
+                    tanggal_faktur = f"{year}-{month_mapping[month]}-{day.zfill(2)}"
                 
                 # Ambil Nama Penjual tanpa alamat
                 penjual_match = re.search(r'Nama\s*:\s*([\w\s\-.,&]+)\nAlamat', text)
@@ -47,40 +49,44 @@ def extract_data_from_pdf(pdf_file):
                 if pembeli_match:
                     nama_pembeli = pembeli_match.group(1).strip()
             
-            # Ambil data tabel jika ada
+            # Simpan semua tabel dari semua halaman terlebih dahulu
             table = page.extract_table()
             if table:
-                for row in table:
-                    if len(row) >= 4 and row[0].isdigit():  # Pastikan baris valid
-                        nama_barang = row[2].replace("\n", " ").strip()
-                        
-                        # Bersihkan informasi tambahan dari nama barang
-                        nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+', '', nama_barang)
-                        nama_barang = re.sub(r'Potongan Harga = Rp [\d.,]+', '', nama_barang)
-                        nama_barang = re.sub(r'PPnBM \(\d+,?\d*%\) = Rp [\d.,]+', '', nama_barang)
-                        
-                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
-                        if harga_qty_info:
-                            harga = int(float(harga_qty_info.group(1).replace('.', '').replace(',', '.')))
-                            qty = int(float(harga_qty_info.group(2).replace('.', '').replace(',', '.')))
-                            unit = harga_qty_info.group(3)
-                        else:
-                            harga, qty, unit = 0, 0, "Unknown"
-                        
-                        total = harga * qty
-                        dpp = total / 1.11  # Menghitung DPP dengan asumsi PPN 11%
-                        ppn = total - dpp
-                        
-                        data.append([
-                            no_fp if no_fp else "Tidak ditemukan",
-                            nama_penjual if nama_penjual else "Tidak ditemukan",
-                            nama_pembeli if nama_pembeli else "Tidak ditemukan",
-                            nama_barang, harga, unit, qty, total, dpp, ppn,
-                            tanggal_faktur if tanggal_faktur else "Tidak ditemukan"
-                        ])
+                temp_data.extend(table)
+
+        # Proses tabel setelah semua halaman dibaca
+        for row in temp_data:
+            if len(row) >= 4 and row[0].isdigit():  # Pastikan baris valid
+                nama_barang = row[2].replace("\n", " ")  # Gabungkan jika multi-baris
+                nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+', '', nama_barang)
+                nama_barang = re.sub(r'Potongan Harga = Rp [\d.,]+', '', nama_barang)
+                nama_barang = re.sub(r'PPnBM \(\d+,?\d*%\) = Rp [\d.,]+', '', nama_barang)
+                nama_barang = nama_barang.strip()
+                
+                # Proses harga & quantity
+                harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
+                if harga_qty_info:
+                    harga = int(float(harga_qty_info.group(1).replace('.', '').replace(',', '.')))
+                    qty = int(float(harga_qty_info.group(2).replace('.', '').replace(',', '.')))
+                    unit = harga_qty_info.group(3)
+                else:
+                    harga, qty, unit = 0, 0, "Unknown"
+                
+                total = harga * qty
+                dpp = total / 1.11  # Asumsi PPN 11%
+                ppn = total - dpp
+                
+                data.append([
+                    no_fp if no_fp else "Tidak ditemukan", 
+                    nama_penjual if nama_penjual else "Tidak ditemukan", 
+                    nama_pembeli if nama_pembeli else "Tidak ditemukan", 
+                    nama_barang, harga, unit, qty, total, dpp, ppn, 
+                    tanggal_faktur if tanggal_faktur else "Tidak ditemukan"
+                ])
+        
+        faktur_counter += 1  # Naikkan counter jika ada faktur baru
     
     return data
-
 
 # Streamlit UI
 st.title("Konversi Faktur Pajak PDF ke Excel")
@@ -90,40 +96,32 @@ uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF, bisa lebih dari sat
 if uploaded_files:
     all_data = []
     
-if uploaded_files:
-    all_data = []
-    
     for uploaded_file in uploaded_files:
         extracted_data = extract_data_from_pdf(uploaded_file)
         if extracted_data:
-            for row in extracted_data:
-                row.append(uploaded_file.name)  # Tambahkan nama file sebagai identifier
             all_data.extend(extracted_data)
-all_tables = []
-with pdfplumber.open(pdf_file) as pdf:
-    for page in pdf.pages:
-        table = page.extract_table()
-        if table:
-            all_tables.extend(table)
-
+    
     if all_data:
-        df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Nama Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur", "Nama File"])
-
-        # Pastikan setiap file tetap memiliki tanggalnya sendiri
-        df = df.sort_values(by=["Nama File", "Tanggal Faktur"]).reset_index(drop=True)
-
+        df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Nama Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
+        
+        df = df[df['Nama Barang'] != ""].reset_index(drop=True)
+        df.index = df.index + 1  # Mulai index dari 1
+        
+        # Jika tanggal faktur hanya ditemukan di halaman terakhir, terapkan ke semua baris
+        if "Tidak ditemukan" in df["Tanggal Faktur"].values and df["Tanggal Faktur"].iloc[-1] != "Tidak ditemukan":
+            df["Tanggal Faktur"] = df["Tanggal Faktur"].replace("Tidak ditemukan", df["Tanggal Faktur"].iloc[-1])
+        
+        # Menampilkan pratinjau data
         st.write("### Pratinjau Data yang Diekstrak")
-        st.dataframe(df.drop(columns=["Nama File"]))  # Tampilkan tanpa kolom Nama File
-
+        st.dataframe(df)
+        
         # Simpan ke Excel
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df.to_excel(writer, index=True, sheet_name='Faktur Pajak')
             writer.close()
         output.seek(0)
-
+        
         st.download_button(label="📥 Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
         st.error("Gagal mengekstrak data. Pastikan format faktur sesuai.")
-
-

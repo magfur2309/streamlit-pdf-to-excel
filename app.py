@@ -81,14 +81,7 @@ st.title("Konversi Faktur Pajak PDF ke Excel")
 
 uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF, bisa lebih dari satu)", type=["pdf"], accept_multiple_files=True)
 
-if "reset" not in st.session_state:
-    st.session_state["reset"] = False
-
-if st.button("Reset Data"):
-    st.session_state["reset"] = True
-    st.rerun()
-
-if uploaded_files and not st.session_state["reset"]:
+if uploaded_files:
     all_data = []
     
     for uploaded_file in uploaded_files:

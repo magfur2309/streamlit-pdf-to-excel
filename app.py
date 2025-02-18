@@ -15,6 +15,7 @@ def extract_data_from_pdf(pdf_file):
     tanggal_faktur = None  # Menyimpan tanggal faktur jika ada di halaman berikutnya
     nama_penjual = None
     nama_pembeli = None
+    no_fp = None
     
     month_mapping = {
         "Januari": "01", "Februari": "02", "Maret": "03", "April": "04",
@@ -26,16 +27,24 @@ def extract_data_from_pdf(pdf_file):
         for page in pdf.pages:
             text = page.extract_text()
             if text:
+                # Ambil No FP
+                no_fp_match = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
+                if no_fp_match:
+                    no_fp = no_fp_match.group(1)
+                
+                # Ambil Tanggal Faktur
                 date_match = re.search(r'\b(\d{1,2})\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s+(\d{4})\b', text)
                 if date_match:
                     day, month, year = date_match.groups()
                     tanggal_faktur = f"{year}-{month_mapping[month]}-{day.zfill(2)}"
                 
-                penjual_match = re.search(r'Nama Penjual[:\s]+([\w\s\-.,&]+)', text)
+                # Ambil Nama Penjual
+                penjual_match = re.search(r'Nama\s*:\s*([\w\s\-.,&]+)', text)
                 if penjual_match:
                     nama_penjual = penjual_match.group(1).strip()
                 
-                pembeli_match = re.search(r'Nama Pembeli[:\s]+([\w\s\-.,&]+)', text)
+                # Ambil Nama Pembeli
+                pembeli_match = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*([\w\s\-.,&]+)', text)
                 if pembeli_match:
                     nama_pembeli = pembeli_match.group(1).strip()
             
@@ -43,7 +52,6 @@ def extract_data_from_pdf(pdf_file):
             if table:
                 for row in table:
                     if len(row) >= 4 and row[0].isdigit():  # Pastikan baris valid
-                        no_fp = faktur_counter
                         nama_barang = row[2].replace("\n", " ")  # Gabungkan jika multi-baris
                         # Hapus informasi harga, potongan harga, dan PPNBM dari nama barang
                         nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+', '', nama_barang)
@@ -62,7 +70,7 @@ def extract_data_from_pdf(pdf_file):
                         dpp = total / 1.11  # Menghitung DPP dengan asumsi PPN 11%
                         ppn = total - dpp
                         
-                        data.append([no_fp, nama_penjual if nama_penjual else "Tidak ditemukan", nama_pembeli if nama_pembeli else "Tidak ditemukan", nama_barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
+                        data.append([no_fp if no_fp else "Tidak ditemukan", nama_penjual if nama_penjual else "Tidak ditemukan", nama_pembeli if nama_pembeli else "Tidak ditemukan", nama_barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
                     
         faktur_counter += 1  # Naikkan counter jika ada faktur baru
     
@@ -86,6 +94,10 @@ if uploaded_files:
         
         df = df[df['Nama Barang'] != ""].reset_index(drop=True)
         df.index = df.index + 1  # Mulai index dari 1
+        
+        # Jika tanggal faktur hanya ditemukan di halaman terakhir, terapkan ke semua baris
+        if "Tidak ditemukan" in df["Tanggal Faktur"].values and df["Tanggal Faktur"].iloc[-1] != "Tidak ditemukan":
+            df["Tanggal Faktur"] = df["Tanggal Faktur"].replace("Tidak ditemukan", df["Tanggal Faktur"].iloc[-1])
         
         # Menampilkan pratinjau data
         st.write("### Pratinjau Data yang Diekstrak")

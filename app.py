@@ -5,20 +5,22 @@ import io
 import re
 
 def login_page():
-    st.title("Login Convert PDF FP To Excel ")
-    username = st.text_input("Username", key="username")
-    password = st.text_input("Password", type="password", key="password")
-    
     if st.session_state.get("logged_in"):
         return True
     
-    if username and password:
+    st.title("Login Convert PDF FP To Excel")
+    username = st.text_input("Username", key="username")
+    password = st.text_input("Password", type="password", key="password")
+    login_btn = st.button("Login")
+    
+    if (username and password) and (login_btn or st.session_state.get("attempt_login")):
         if (username == "admin" and password == "admin") or (username == "demo" and password == "123456"):
             st.session_state["logged_in"] = True
             st.session_state["user"] = username
             st.rerun()
         else:
             st.error("Username atau password salah!")
+            st.session_state["attempt_login"] = False
     
     return False
 

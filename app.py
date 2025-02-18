@@ -36,18 +36,25 @@ def login(username, password):
 
 # Display login form if user is not authenticated
 if not st.session_state['user_authenticated']:
+    # Form layout for login
     with st.form(key="login_form"):
-        st.title("Login")
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
+        st.title("Login untuk Mengakses Aplikasi")
+
+        # Form fields
+        username = st.text_input("Username", placeholder="Masukkan username Anda")
+        password = st.text_input("Password", type="password", placeholder="Masukkan password Anda")
+        
+        # Submit button
         submit_button = st.form_submit_button(label="Login")
 
+        # Login logic
         if submit_button:
             if login(username, password):
                 st.success(f"Selamat datang, {username}!")
             else:
                 st.error("Username atau password salah. Coba lagi.")
 else:
+    # Main application code after login
     st.title("Konversi Faktur Pajak PDF ke Excel")
 
     # Check upload limit for demo users

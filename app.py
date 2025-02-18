@@ -99,6 +99,12 @@ if uploaded_files:
             for row in extracted_data:
                 row.append(uploaded_file.name)  # Tambahkan nama file sebagai identifier
             all_data.extend(extracted_data)
+all_tables = []
+with pdfplumber.open(pdf_file) as pdf:
+    for page in pdf.pages:
+        table = page.extract_table()
+        if table:
+            all_tables.extend(table)
 
     if all_data:
         df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Nama Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur", "Nama File"])

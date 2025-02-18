@@ -44,37 +44,45 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                 if pembeli_match:
                     nama_pembeli = pembeli_match.group(1).strip()
             
+            # Extract table data from the page
             table = page.extract_table()
             if table:
-                previous_row = None
-                for row in table:
-                    if len(row) >= 4 and row[0].isdigit():
-                        if previous_row and row[0] == "":
-                            previous_row[2] += " " + " ".join(row[2].split("\n")).strip()
-                            continue
-                        
-                        nama_barang = " ".join(row[2].split("\n")).strip()
-                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
-                        if harga_qty_info:
-                            harga = int(float(harga_qty_info.group(1).replace('.', '').replace(',', '.')))
-                            qty = int(float(harga_qty_info.group(2).replace('.', '').replace(',', '.')))
-                            unit = harga_qty_info.group(3)
-                        else:
-                            harga, qty, unit = 0, 0, "Unknown"
-                        
-                        total = harga * qty
-                        dpp = total / 1.11
-                        ppn = total - dpp
-                        
-                        item = [
-                            no_fp if no_fp else "Tidak ditemukan", 
-                            nama_penjual if nama_penjual else "Tidak ditemukan", 
-                            nama_pembeli if nama_pembeli else "Tidak ditemukan", 
-                            nama_barang, harga, unit, qty, total, dpp, ppn, 
-                            tanggal_faktur  
-                        ]
-                        data.append(item)
-                        previous_row = item
+                # Find the index of the "No." column in the table
+                header = table[0]
+                no_col_index = None
+                for i, column in enumerate(header):
+                    if column and "No." in column:  # Detect "No." column
+                        no_col_index = i
+                        break
+                
+                if no_col_index is not None:
+                    # Extract rows based on the "No." column
+                    for row in table[1:]:  # Skip the header row
+                        if len(row) > no_col_index:  # Ensure it's a valid row
+                            no_urut = row[no_col_index]
+                            nama_barang = " ".join(row[2].split("\n")).strip() if len(row) > 2 else "Unknown"
+                            
+                            harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2]) if len(row) > 2 else None
+                            if harga_qty_info:
+                                harga = int(float(harga_qty_info.group(1).replace('.', '').replace(',', '.')))
+                                qty = int(float(harga_qty_info.group(2).replace('.', '').replace(',', '.')))
+                                unit = harga_qty_info.group(3)
+                            else:
+                                harga, qty, unit = 0, 0, "Unknown"
+                            
+                            total = harga * qty
+                            dpp = total / 1.11
+                            ppn = total - dpp
+                            
+                            # Add data for this item
+                            item = [
+                                no_fp if no_fp else "Tidak ditemukan", 
+                                nama_penjual if nama_penjual else "Tidak ditemukan", 
+                                nama_pembeli if nama_pembeli else "Tidak ditemukan", 
+                                nama_barang, harga, unit, qty, total, dpp, ppn, 
+                                tanggal_faktur  
+                            ]
+                            data.append(item)
     return data
 
 st.title("Konversi Faktur Pajak PDF ke Excel")

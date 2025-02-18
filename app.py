@@ -144,7 +144,7 @@ else:
         st.stop()  # Stop the process if the demo user has exceeded the upload limit
 
     # Main Application: PDF Upload and Processing
-    st.title("Konversi Faktur Pajak PDF ke Excel")
+    st.title("Konversi Faktur Pajak PDF To Excel")
 
     # File uploader for PDF invoices
     uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF, bisa lebih dari satu)", type=["pdf"], accept_multiple_files=True)

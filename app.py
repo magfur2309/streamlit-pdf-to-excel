@@ -13,7 +13,8 @@ def extract_data_from_pdf(pdf_file):
     data = []
     faktur_counter = 1  # Untuk menjaga urutan nomor faktur
     tanggal_faktur = None  # Menyimpan tanggal faktur jika ada di halaman berikutnya
-    last_tanggal_faktur = None  # Menyimpan tanggal faktur terakhir yang ditemukan
+    nama_penjual = "Tidak ditemukan"
+    nama_pembeli = "Tidak ditemukan"
     
     month_mapping = {
         "Januari": "01", "Februari": "02", "Maret": "03", "April": "04",
@@ -29,14 +30,20 @@ def extract_data_from_pdf(pdf_file):
                 if date_match:
                     day, month, year = date_match.groups()
                     tanggal_faktur = f"{year}-{month_mapping[month]}-{day.zfill(2)}"
-                    last_tanggal_faktur = tanggal_faktur  # Simpan tanggal terakhir yang ditemukan
+                
+                penjual_match = re.search(r'Nama Penjual:\s*(.*)', text)
+                if penjual_match:
+                    nama_penjual = penjual_match.group(1).strip()
+                
+                pembeli_match = re.search(r'Nama Pembeli:\s*(.*)', text)
+                if pembeli_match:
+                    nama_pembeli = pembeli_match.group(1).strip()
             
             table = page.extract_table()
             if table:
                 for row in table:
                     if len(row) >= 4 and row[0].isdigit():  # Pastikan baris valid
                         no_fp = faktur_counter
-                        kode_barang = row[1]
                         nama_barang = row[2].replace("\n", " ")  # Gabungkan jika multi-baris
                         # Hapus informasi harga, potongan harga, dan PPNBM dari nama barang
                         nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+', '', nama_barang)
@@ -55,16 +62,10 @@ def extract_data_from_pdf(pdf_file):
                         dpp = total / 1.11  # Menghitung DPP dengan asumsi PPN 11%
                         ppn = total - dpp
                         
-                        data.append([no_fp, kode_barang, nama_barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
+                        data.append([no_fp, nama_penjual, nama_pembeli, nama_barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
                     
         faktur_counter += 1  # Naikkan counter jika ada faktur baru
     
-    # Jika semua halaman sebelumnya tidak memiliki tanggal, gunakan tanggal terakhir yang ditemukan
-    if last_tanggal_faktur:
-        for row in data:
-            if row[9] == "Tidak ditemukan":
-                row[9] = last_tanggal_faktur
-
     return data
 
 # Streamlit UI
@@ -81,7 +82,7 @@ if uploaded_files:
             all_data.extend(extracted_data)
     
     if all_data:
-        df = pd.DataFrame(all_data, columns=["No", "Kode Barang", "Nama Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
+        df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Nama Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
         
         df = df[df['Nama Barang'] != ""].reset_index(drop=True)
         df.index = df.index + 1  # Mulai index dari 1

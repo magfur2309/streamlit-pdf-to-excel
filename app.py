@@ -87,29 +87,27 @@ if uploaded_files:
     for uploaded_file in uploaded_files:
         extracted_data = extract_data_from_pdf(uploaded_file)
         if extracted_data:
+            for row in extracted_data:
+                row.append(uploaded_file.name)  # Tambahkan nama file sebagai identifier
             all_data.extend(extracted_data)
-    
+
     if all_data:
-        df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Nama Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
-        
-        df = df[df['Nama Barang'] != ""].reset_index(drop=True)
-        df.index = df.index + 1  # Mulai index dari 1
-        
-        # Jika tanggal faktur hanya ditemukan di halaman terakhir, terapkan ke semua baris
-        if "Tidak ditemukan" in df["Tanggal Faktur"].values and df["Tanggal Faktur"].iloc[-1] != "Tidak ditemukan":
-            df["Tanggal Faktur"] = df["Tanggal Faktur"].replace("Tidak ditemukan", df["Tanggal Faktur"].iloc[-1])
-        
-        # Menampilkan pratinjau data
+        df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Nama Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur", "Nama File"])
+
+        # Pastikan tanggal faktur berbeda untuk setiap file yang diunggah
+        df = df.sort_values(by=["Nama File", "Tanggal Faktur"]).reset_index(drop=True)
+
         st.write("### Pratinjau Data yang Diekstrak")
-        st.dataframe(df)
-        
+        st.dataframe(df.drop(columns=["Nama File"]))  # Tampilkan tanpa kolom Nama File
+
         # Simpan ke Excel
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df.to_excel(writer, index=True, sheet_name='Faktur Pajak')
             writer.close()
         output.seek(0)
-        
+
         st.download_button(label="📥 Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
         st.error("Gagal mengekstrak data. Pastikan format faktur sesuai.")
+

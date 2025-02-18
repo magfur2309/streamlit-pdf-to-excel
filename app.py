@@ -7,12 +7,11 @@ from datetime import datetime
 
 def extract_data_from_pdf(pdf_file):
     """
-    Fungsi untuk mengekstrak data dari file PDF dan mengonversinya ke format tabel,
-    menangani banyak halaman dan beberapa tabel dalam satu file.
+    Fungsi untuk mengekstrak data dari file PDF dan memastikan tanggal faktur
+    berasal dari halaman terakhir jika terdapat beberapa halaman dalam satu file.
     """
     data = []
-    faktur_counter = 1  # Untuk menjaga urutan nomor faktur
-    tanggal_faktur = None  # Menyimpan tanggal faktur jika ada di halaman berikutnya
+    tanggal_faktur = None  # Tanggal faktur akan terus diperbarui hingga halaman terakhir
     nama_penjual = None
     nama_pembeli = None
     no_fp = None
@@ -24,7 +23,7 @@ def extract_data_from_pdf(pdf_file):
     }
     
     with pdfplumber.open(pdf_file) as pdf:
-        for page in pdf.pages:
+        for page_index, page in enumerate(pdf.pages):
             text = page.extract_text()
             if text:
                 # Ambil No FP
@@ -32,11 +31,11 @@ def extract_data_from_pdf(pdf_file):
                 if no_fp_match:
                     no_fp = no_fp_match.group(1)
                 
-                # Ambil Tanggal Faktur
+                # Ambil Tanggal Faktur (hanya simpan yang terakhir)
                 date_match = re.search(r'\b(\d{1,2})\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s+(\d{4})\b', text)
                 if date_match:
                     day, month, year = date_match.groups()
-                    tanggal_faktur = f"{year}-{month_mapping[month]}-{day.zfill(2)}"
+                    tanggal_faktur = f"{year}-{month_mapping[month]}-{day.zfill(2)}"  # Selalu diperbarui
                 
                 # Ambil Nama Penjual tanpa alamat
                 penjual_match = re.search(r'Nama\s*:\s*([\w\s\-.,&]+)\nAlamat', text)
@@ -48,16 +47,17 @@ def extract_data_from_pdf(pdf_file):
                 if pembeli_match:
                     nama_pembeli = pembeli_match.group(1).strip()
             
+            # Ambil data tabel jika ada
             table = page.extract_table()
             if table:
                 for row in table:
                     if len(row) >= 4 and row[0].isdigit():  # Pastikan baris valid
-                        nama_barang = row[2].replace("\n", " ")  # Gabungkan jika multi-baris
-                        # Hapus informasi harga, potongan harga, dan PPNBM dari nama barang
+                        nama_barang = row[2].replace("\n", " ").strip()
+                        
+                        # Bersihkan informasi tambahan dari nama barang
                         nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+', '', nama_barang)
                         nama_barang = re.sub(r'Potongan Harga = Rp [\d.,]+', '', nama_barang)
                         nama_barang = re.sub(r'PPnBM \(\d+,?\d*%\) = Rp [\d.,]+', '', nama_barang)
-                        nama_barang = nama_barang.strip()
                         
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         if harga_qty_info:
@@ -66,15 +66,21 @@ def extract_data_from_pdf(pdf_file):
                             unit = harga_qty_info.group(3)
                         else:
                             harga, qty, unit = 0, 0, "Unknown"
+                        
                         total = harga * qty
                         dpp = total / 1.11  # Menghitung DPP dengan asumsi PPN 11%
                         ppn = total - dpp
                         
-                        data.append([no_fp if no_fp else "Tidak ditemukan", nama_penjual if nama_penjual else "Tidak ditemukan", nama_pembeli if nama_pembeli else "Tidak ditemukan", nama_barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
-                    
-        faktur_counter += 1  # Naikkan counter jika ada faktur baru
+                        data.append([
+                            no_fp if no_fp else "Tidak ditemukan",
+                            nama_penjual if nama_penjual else "Tidak ditemukan",
+                            nama_pembeli if nama_pembeli else "Tidak ditemukan",
+                            nama_barang, harga, unit, qty, total, dpp, ppn,
+                            tanggal_faktur if tanggal_faktur else "Tidak ditemukan"
+                        ])
     
     return data
+
 
 # Streamlit UI
 st.title("Konversi Faktur Pajak PDF ke Excel")

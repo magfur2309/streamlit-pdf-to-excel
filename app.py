@@ -11,9 +11,8 @@ def extract_data_from_pdf(pdf_file):
     menangani banyak halaman dan beberapa tabel dalam satu file.
     """
     data = []
-    faktur_counter = 1  # Menjaga urutan nomor faktur
-    seen_faktur = set()  # Menyimpan faktur yang sudah diproses
-    tanggal_faktur_map = {}  # Menyimpan tanggal faktur berdasarkan nomor FP
+    faktur_counter = 1  # Untuk menjaga urutan nomor faktur
+    tanggal_faktur = None  # Menyimpan tanggal faktur jika ada di halaman berikutnya
     
     month_mapping = {
         "Januari": "01", "Februari": "02", "Maret": "03", "April": "04",
@@ -26,43 +25,39 @@ def extract_data_from_pdf(pdf_file):
             text = page.extract_text()
             if text:
                 try:
+                    # Mencari tanggal faktur di setiap halaman
                     match_tanggal = re.search(r'([0-9]{1,2})\s*(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s*([0-9]{4})', text)
                     if match_tanggal:
                         day, month, year = match_tanggal.groups()
                         tanggal_faktur = f"{day.zfill(2)}/{month_mapping.get(month, '00')}/{year}"
-                    else:
-                        tanggal_faktur = None
                     
-                    no_fp_match = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
+                    no_fp = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
                     nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     
-                    no_fp = no_fp_match.group(1) if no_fp_match else "Tidak ditemukan"
-                    nama_penjual = nama_penjual.group(1).strip() if nama_penjual else "Tidak ditemukan"
-                    nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else "Tidak ditemukan"
+                    no_fp = no_fp.group(1) if no_fp else ""
+                    nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
+                    nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
                     
-                    if no_fp and no_fp not in seen_faktur:
-                        seen_faktur.add(no_fp)  # Menandai faktur sebagai sudah diproses
-                        if tanggal_faktur:
-                            tanggal_faktur_map[no_fp] = tanggal_faktur
-                        elif no_fp in tanggal_faktur_map:
-                            tanggal_faktur = tanggal_faktur_map[no_fp]
-                    
+                    # Menangkap informasi barang/jasa dengan berbagai format harga dan qty
                     barang_pattern = re.findall(r'(.*?)\s+Rp ([\d.,]+) x ([\d.,]+) (\w+)', text)
-                    if not barang_pattern:
-                        barang_pattern = [("Tidak ditemukan", "0", "0", "unit")]
-                    
                     for barang_match in barang_pattern:
                         barang, harga, qty, unit = barang_match
-                        harga = int(float(harga.replace('.', '').replace(',', '.'))) if harga.replace('.', '').replace(',', '').isdigit() else 0
-                        qty = int(float(qty.replace('.', '').replace(',', '.'))) if qty.replace('.', '').replace(',', '').isdigit() else 0
+                        harga = int(float(harga.replace('.', '').replace(',', '.')))
+                        qty = int(float(qty.replace('.', '').replace(',', '.')))
                         total = harga * qty
-                        dpp = total / 1.11 if total > 0 else 0  # Asumsi PPN 11%
+                        dpp = total / 1.11  # Menghitung DPP dengan asumsi PPN 11%
                         ppn = total - dpp
                         
-                        data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur])
+                        data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
                     
-                    faktur_counter += 1  # Nomor urut hanya naik jika faktur baru ditemukan
+                    # Pastikan setiap faktur memiliki tanggal faktur yang benar
+                    if data and tanggal_faktur:
+                        for row in data:
+                            if row[11] == "Tidak ditemukan":
+                                row[11] = tanggal_faktur
+                    
+                    faktur_counter += 1  # Naikkan counter jika ada faktur baru
                 except Exception as e:
                     st.error(f"Terjadi kesalahan dalam membaca halaman: {e}")
     
@@ -84,16 +79,17 @@ if uploaded_files:
     if all_data:
         df = pd.DataFrame(all_data, columns=["No", "No FP", "Nama Penjual", "Nama Pembeli", "Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
         
-        # Pastikan nomor urut mengikuti urutan asli dari PDF
-        df = df.sort_values(by=["No FP"]).reset_index(drop=True)
-        df["No"] = range(1, len(df) + 1)  # Nomor urut yang benar
+        df = df[df['Barang'] != ""].reset_index(drop=True)
+        df.index = df.index + 1  # Mulai index dari 1
         
+        # Menampilkan pratinjau data
         st.write("### Pratinjau Data yang Diekstrak")
         st.dataframe(df)
         
+        # Simpan ke Excel
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Faktur Pajak')
+            df.to_excel(writer, index=True, sheet_name='Faktur Pajak')
             writer.close()
         output.seek(0)
         

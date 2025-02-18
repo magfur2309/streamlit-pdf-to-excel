@@ -6,7 +6,7 @@ import re
 
 # Dummy user database (For demo purposes)
 USER_CREDENTIALS = {
-    "super_admin": "admin_password",  # Super Admin account
+    "admin": "password",  # Super Admin account
     "demo_user": "demo_password"      # Demo User account
 }
 
@@ -92,7 +92,7 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
     return data
 
 # Streamlit UI
-st.title("Konversi Faktur Pajak PDF ke Excel")
+st.title("Konversi Faktur Pajak PDF To Ms Excel")
 
 # Check if user is logged in
 if "logged_in" not in st.session_state:

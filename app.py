@@ -27,17 +27,14 @@ def check_upload_limit():
 
 # Function to handle user login
 def login(username, password):
-    # Dummy user credentials for admin and demo
     users = {
         "admin": "123456",
         "demo": "123456"
     }
-
-    # Check if the credentials match
     if username in users and users[username] == password:
         st.session_state['user_authenticated'] = True
         st.session_state['username'] = username
-        st.session_state['upload_count'] = 0  # Reset upload count when logged in (for demo user on a new device)
+        st.session_state['upload_count'] = 0
         return True
     return False
 
@@ -50,7 +47,6 @@ def extract_tanggal_faktur(pdf):
     }
     tanggal_faktur = "Tidak ditemukan"
     
-    # Convert uploaded file into a format pdfplumber can work with
     with pdfplumber.open(pdf) as pdf_obj:
         for page in pdf_obj.pages:
             text = page.extract_text()
@@ -67,7 +63,6 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
 
-    # Convert uploaded file into a format pdfplumber can work with
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
@@ -93,29 +88,19 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                             previous_row[2] += " " + " ".join(row[2].split("\n")).strip()
                             continue
                         
-                        nama_barang = " ".join(row[2].split("\n")).strip()
-                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
-                        if harga_qty_info:
-                            harga = int(float(harga_qty_info.group(1).replace('.', '').replace(',', '.')))
-                            qty = int(float(harga_qty_info.group(2).replace('.', '').replace(',', '.')))
-                            unit = harga_qty_info.group(3)
-                        else:
-                            harga, qty, unit = 0, 0, "Unknown"
-                        
-                        total = harga * qty
-                        dpp = total / 1.11
-                        ppn = total - dpp
+                        clean_text = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+|Potongan Harga = Rp [\d.,]+|PPnBM \([\d.,%]+\) = Rp [\d.,]+', '', row[2])
+                        nama_barang = " ".join(clean_text.split("\n")).strip()
                         
                         item = [
                             no_fp if no_fp else "Tidak ditemukan", 
                             nama_penjual if nama_penjual else "Tidak ditemukan", 
                             nama_pembeli if nama_pembeli else "Tidak ditemukan", 
-                            nama_barang, harga, unit, qty, total, dpp, ppn, 
-                            tanggal_faktur  
+                            nama_barang, tanggal_faktur  
                         ]
                         data.append(item)
                         previous_row = item
     return data
+
 
 # Display login form if user is not authenticated
 if not st.session_state['user_authenticated']:

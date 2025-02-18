@@ -8,6 +8,21 @@ from datetime import datetime
 # Simpan daftar password yang sedang digunakan
 active_sessions = {}
 
+def submit_auth():
+    """Fungsi untuk menangani submit dengan Enter."""
+    password = st.session_state["password"]
+    username = st.session_state["username"]
+    
+    if password == "admin123":  # Ganti dengan kode yang lebih aman
+        if password in active_sessions:
+            st.error("Kode ini sudah digunakan oleh pengguna lain.")
+        else:
+            active_sessions[password] = username
+            st.session_state["authorized"] = True
+            st.success("Otorisasi berhasil! Anda dapat menggunakan aplikasi.")
+    else:
+        st.error("Kode salah! Coba lagi.")
+
 def authenticate():
     """Fungsi untuk otorisasi pengguna dengan password unik untuk satu user."""
     if "authorized" not in st.session_state:
@@ -15,19 +30,12 @@ def authenticate():
     
     if not st.session_state["authorized"]:
         st.warning("Aplikasi ini memerlukan persetujuan sebelum digunakan.")
-        username = st.text_input("Masukkan nama pengguna:")
-        password = st.text_input("Masukkan kode otorisasi:", type="password")
+        st.text_input("Masukkan nama pengguna:", key="username")
+        st.text_input("Masukkan kode otorisasi:", type="password", key="password", on_change=submit_auth)
         
         if st.button("Submit"):
-            if password == "admin123":  # Ganti dengan kode yang lebih aman
-                if password in active_sessions:
-                    st.error("Kode ini sudah digunakan oleh pengguna lain.")
-                else:
-                    active_sessions[password] = username
-                    st.session_state["authorized"] = True
-                    st.success("Otorisasi berhasil! Anda dapat menggunakan aplikasi.")
-            else:
-                st.error("Kode salah! Coba lagi.")
+            submit_auth()
+        
         return False
     return True
 
@@ -122,15 +130,12 @@ if authenticate():
             df = df[df['Nama Barang'] != ""].reset_index(drop=True)
             df.index = df.index + 1  # Mulai index dari 1
             
-            # Jika tanggal faktur hanya ditemukan di halaman terakhir, terapkan ke semua baris
             if "Tidak ditemukan" in df["Tanggal Faktur"].values and df["Tanggal Faktur"].iloc[-1] != "Tidak ditemukan":
                 df["Tanggal Faktur"] = df["Tanggal Faktur"].replace("Tidak ditemukan", df["Tanggal Faktur"].iloc[-1])
             
-            # Menampilkan pratinjau data
             st.write("### Pratinjau Data yang Diekstrak")
             st.dataframe(df)
             
-            # Simpan ke Excel
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 df.to_excel(writer, index=True, sheet_name='Faktur Pajak')

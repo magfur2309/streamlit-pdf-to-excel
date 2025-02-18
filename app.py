@@ -79,6 +79,10 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
 
 st.title("Konversi Faktur Pajak PDF ke Excel")
 
+# Add session state to handle reset
+if "uploaded_files" not in st.session_state:
+    st.session_state["uploaded_files"] = []
+
 uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF, bisa lebih dari satu)", type=["pdf"], accept_multiple_files=True)
 
 if "reset" not in st.session_state:
@@ -86,12 +90,15 @@ if "reset" not in st.session_state:
 
 if st.button("Reset Data"):
     st.session_state["reset"] = True
+    st.session_state["uploaded_files"] = []  # Clear the uploaded files
     st.rerun()
 
 if uploaded_files and not st.session_state["reset"]:
+    # Store the uploaded files in session state
+    st.session_state["uploaded_files"] = uploaded_files
     all_data = []
     
-    for uploaded_file in uploaded_files:
+    for uploaded_file in st.session_state["uploaded_files"]:
         tanggal_faktur = extract_tanggal_faktur(uploaded_file)  
         extracted_data = extract_data_from_pdf(uploaded_file, tanggal_faktur)
         if extracted_data:

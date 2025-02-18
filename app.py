@@ -6,8 +6,8 @@ import re
 
 # Dummy user database (For demo purposes)
 USER_CREDENTIALS = {
-    "super_admin": "admin_password",  # Super Admin account
-    "demo_user": "demo_password"      # Demo User account
+    "admin": "password",  # Super Admin account
+    "demo": "demo"      # Demo User account
 }
 
 # Function to check if user is logged in

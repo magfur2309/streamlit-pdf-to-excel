@@ -45,6 +45,8 @@ def extract_data_from_pdf(pdf_file):
                         seen_faktur.add(no_fp)  # Menandai faktur sebagai sudah diproses
                         if tanggal_faktur:
                             tanggal_faktur_map[no_fp] = tanggal_faktur
+                        elif no_fp in tanggal_faktur_map:
+                            tanggal_faktur = tanggal_faktur_map[no_fp]
                     
                     barang_pattern = re.findall(r'(.*?)\s+Rp ([\d.,]+) x ([\d.,]+) (\w+)', text)
                     if not barang_pattern:
@@ -58,7 +60,7 @@ def extract_data_from_pdf(pdf_file):
                         dpp = total / 1.11 if total > 0 else 0  # Asumsi PPN 11%
                         ppn = total - dpp
                         
-                        data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur_map.get(no_fp, "Belum ditemukan")])
+                        data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur])
                     
                     faktur_counter += 1  # Nomor urut hanya naik jika faktur baru ditemukan
                 except Exception as e:

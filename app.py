@@ -5,18 +5,27 @@ import io
 import re
 from datetime import datetime
 
+# Simpan daftar password yang sedang digunakan
+active_sessions = {}
+
 def authenticate():
-    """Fungsi untuk otorisasi pengguna."""
+    """Fungsi untuk otorisasi pengguna dengan password unik untuk satu user."""
     if "authorized" not in st.session_state:
         st.session_state["authorized"] = False
     
     if not st.session_state["authorized"]:
         st.warning("Aplikasi ini memerlukan persetujuan sebelum digunakan.")
+        username = st.text_input("Masukkan nama pengguna:")
         password = st.text_input("Masukkan kode otorisasi:", type="password")
+        
         if st.button("Submit"):
             if password == "admin123":  # Ganti dengan kode yang lebih aman
-                st.session_state["authorized"] = True
-                st.success("Otorisasi berhasil! Anda dapat menggunakan aplikasi.")
+                if password in active_sessions:
+                    st.error("Kode ini sudah digunakan oleh pengguna lain.")
+                else:
+                    active_sessions[password] = username
+                    st.session_state["authorized"] = True
+                    st.success("Otorisasi berhasil! Anda dapat menggunakan aplikasi.")
             else:
                 st.error("Kode salah! Coba lagi.")
         return False

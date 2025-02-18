@@ -39,22 +39,23 @@ def extract_data_from_pdf(pdf_file):
                     nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
                     nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
                     
-                    # Menangkap informasi barang/jasa secara lebih akurat
-                    start_extracting = False
-                    barang_list = []
-                    for line in text.split("\n"):
-                        if "Nama Barang Kena Pajak / Jasa Kena Pajak" in line:
-                            start_extracting = True
-                            continue
+                    # Menangkap informasi barang/jasa dengan berbagai format harga dan qty
+                    barang_pattern = re.findall(r'(.*?)\s+Rp ([\d.,]+) x ([\d.,]+) (\w+)', text)
+                    for barang_match in barang_pattern:
+                        barang, harga, qty, unit = barang_match
+                        harga = int(float(harga.replace('.', '').replace(',', '.')))
+                        qty = int(float(qty.replace('.', '').replace(',', '.')))
+                        total = harga * qty
+                        dpp = total / 1.11  # Menghitung DPP dengan asumsi PPN 11%
+                        ppn = total - dpp
                         
-                        if start_extracting:
-                            if re.match(r'\d+\s+\d{6}', line):  # Deteksi pola nomor barang
-                                barang_list.append(line.split(maxsplit=2)[-1].strip())
-                            elif any(keyword in line.lower() for keyword in ["ppn", "total", "jumlah"]):
-                                break  # Berhenti saat mencapai bagian perhitungan pajak
+                        data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
                     
-                    for barang in barang_list:
-                        data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, barang, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
+                    # Pastikan setiap faktur memiliki tanggal faktur yang benar
+                    if data and tanggal_faktur:
+                        for row in data:
+                            if row[11] == "Tidak ditemukan":
+                                row[11] = tanggal_faktur
                     
                     faktur_counter += 1  # Naikkan counter jika ada faktur baru
                 except Exception as e:
@@ -76,7 +77,7 @@ if uploaded_files:
             all_data.extend(extracted_data)
     
     if all_data:
-        df = pd.DataFrame(all_data, columns=["No", "No FP", "Nama Penjual", "Nama Pembeli", "Barang", "Tanggal Faktur"])
+        df = pd.DataFrame(all_data, columns=["No", "No FP", "Nama Penjual", "Nama Pembeli", "Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
         
         df = df[df['Barang'] != ""].reset_index(drop=True)
         df.index = df.index + 1  # Mulai index dari 1

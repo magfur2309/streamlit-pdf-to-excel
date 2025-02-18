@@ -18,6 +18,12 @@ if 'username' not in st.session_state:
 if 'session_id' not in st.session_state:
     st.session_state['session_id'] = str(uuid.uuid4())  # Generate a unique session ID
 
+if 'uploaded_files' not in st.session_state:
+    st.session_state['uploaded_files'] = []
+
+if 'all_data' not in st.session_state:
+    st.session_state['all_data'] = []
+
 # Function to check if the user has exceeded the upload limit
 def check_upload_limit():
     if st.session_state.get('username') == 'demo' and st.session_state['upload_count'] >= 50:
@@ -146,8 +152,20 @@ else:
     # Main Application: PDF Upload and Processing
     st.title("Konversi Faktur Pajak PDF ke Excel")
 
-    # File uploader for PDF invoices
-    uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF, bisa lebih dari satu)", type=["pdf"], accept_multiple_files=True)
+    # Create a reset button to clear uploaded files and extracted data
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF, bisa lebih dari satu)", type=["pdf"], accept_multiple_files=True)
+
+    with col2:
+        reset_button = st.button("Reset Data", key="reset_button")
+
+    # Reset uploaded files and data
+    if reset_button:
+        st.session_state['uploaded_files'] = []
+        st.session_state['all_data'] = []
+        st.session_state['upload_count'] = 0
+        st.experimental_rerun()
 
     if uploaded_files:
         all_data = []

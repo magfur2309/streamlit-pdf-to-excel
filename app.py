@@ -35,26 +35,23 @@ def extract_data_from_pdf(pdf_file):
                     nama_penjual = re.search(r'Pengusaha Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     nama_pembeli = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*(.+)', text)
                     
-                    no_fp = no_fp_match.group(1) if no_fp_match else "Tidak ditemukan"
-                    nama_penjual = nama_penjual.group(1).strip() if nama_penjual else "Tidak ditemukan"
-                    nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else "Tidak ditemukan"
+                    no_fp = no_fp_match.group(1) if no_fp_match else ""
+                    nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
+                    nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
                     
                     if no_fp and no_fp not in seen_faktur:
                         seen_faktur.add(no_fp)  # Menandai faktur sebagai sudah diproses
                     
                     barang_pattern = re.findall(r'(.*?)\s+Rp ([\d.,]+) x ([\d.,]+) (\w+)', text)
-                    if not barang_pattern:
-                        barang_pattern = [("Tidak ditemukan", "0", "0", "unit")]
-                    
                     for barang_match in barang_pattern:
                         barang, harga, qty, unit = barang_match
-                        harga = int(float(harga.replace('.', '').replace(',', '.'))) if harga.replace('.', '').replace(',', '').isdigit() else 0
-                        qty = int(float(qty.replace('.', '').replace(',', '.'))) if qty.replace('.', '').replace(',', '').isdigit() else 0
+                        harga = int(float(harga.replace('.', '').replace(',', '.')))
+                        qty = int(float(qty.replace('.', '').replace(',', '.')))
                         total = harga * qty
-                        dpp = total / 1.11 if total > 0 else 0  # Asumsi PPN 11%
+                        dpp = total / 1.11  # Asumsi PPN 11%
                         ppn = total - dpp
                         
-                        data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur if tanggal_faktur else "Menunggu halaman berikutnya"])
+                        data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
                     
                     faktur_counter += 1  # Nomor urut hanya naik jika faktur baru ditemukan
                 except Exception as e:

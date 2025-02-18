@@ -90,6 +90,9 @@ uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF, bisa lebih dari sat
 if uploaded_files:
     all_data = []
     
+if uploaded_files:
+    all_data = []
+    
     for uploaded_file in uploaded_files:
         extracted_data = extract_data_from_pdf(uploaded_file)
         if extracted_data:
@@ -100,7 +103,7 @@ if uploaded_files:
     if all_data:
         df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Nama Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur", "Nama File"])
 
-        # Pastikan tanggal faktur berbeda untuk setiap file yang diunggah
+        # Pastikan setiap file tetap memiliki tanggalnya sendiri
         df = df.sort_values(by=["Nama File", "Tanggal Faktur"]).reset_index(drop=True)
 
         st.write("### Pratinjau Data yang Diekstrak")
@@ -116,4 +119,5 @@ if uploaded_files:
         st.download_button(label="📥 Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
         st.error("Gagal mengekstrak data. Pastikan format faktur sesuai.")
+
 

@@ -4,7 +4,6 @@ import pdfplumber
 import io
 import re
 from datetime import datetime
-
 def extract_data_from_pdf(pdf_file):
     data = []
     faktur_counter = 1
@@ -20,7 +19,7 @@ def extract_data_from_pdf(pdf_file):
     }
     
     with pdfplumber.open(pdf_file) as pdf:
-        for page in pdf.pages:
+        for i, page in enumerate(pdf.pages):
             text = page.extract_text()
             if text:
                 # Ambil No FP
@@ -28,11 +27,15 @@ def extract_data_from_pdf(pdf_file):
                 if no_fp_match:
                     no_fp = no_fp_match.group(1)
                 
-                # Ambil Tanggal Faktur (dari halaman mana saja)
-                date_match = re.search(r'\b(\d{1,2})\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s+(\d{4})\b', text)
-                if date_match and not tanggal_faktur:
-                    day, month, year = date_match.groups()
-                    tanggal_faktur = f"{year}-{month_mapping[month]}-{day.zfill(2)}"
+                # Ambil Tanggal Faktur (pada halaman terakhir)
+                if i == len(pdf.pages) - 1:
+                    date_match = re.search(r'\b(\d{1,2})\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s+(\d{4})\b', text)
+                    if date_match:
+                        day, month, year = date_match.groups()
+                        tanggal_faktur = f"{year}-{month_mapping[month]}-{day.zfill(2)}"
+                        print(f"Tanggal faktur ditemukan: {tanggal_faktur}")  # Debugging
+                    else:
+                        print("Tanggal faktur tidak ditemukan pada halaman terakhir.")  # Debugging
                 
                 # Ambil Nama Penjual
                 penjual_match = re.search(r'Nama\s*:\s*([\w\s\-.,&]+)\nAlamat', text)
@@ -76,7 +79,6 @@ def extract_data_from_pdf(pdf_file):
                             tanggal_faktur if tanggal_faktur else "Tidak ditemukan"
                         ])
     return data
-
 
 # Streamlit UI
 st.title("Konversi Faktur Pajak PDF ke Excel")

@@ -67,7 +67,6 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
 
-    # Convert uploaded file into a format pdfplumber can work with
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
@@ -83,16 +82,17 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                 pembeli_match = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*([\w\s\-.,&]+)\nAlamat', text)
                 if pembeli_match:
                     nama_pembeli = pembeli_match.group(1).strip()
-            
+
             table = page.extract_table()
             if table:
                 previous_row = None
                 for row in table:
                     if len(row) >= 4 and row[0].isdigit():
-                        if previous_row and row[0] == "":
-                            previous_row[2] += " " + " ".join(row[2].split("\n")).strip()
-                            continue
+                        # Cek apakah item tersebut berisi informasi yang tidak relevan seperti potongan harga atau PPnBM
+                        if 'Potongan Harga' in row[2] or 'PPnBM' in row[2] or 'Rp 0,00' in row[2]:
+                            continue  # Skip baris ini dan lanjutkan ke baris berikutnya
                         
+                        # Gabungkan nama barang (kolom ke-3) jika terpotong
                         nama_barang = " ".join(row[2].split("\n")).strip()
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         if harga_qty_info:
@@ -116,6 +116,7 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         data.append(item)
                         previous_row = item
     return data
+
 
 # Display login form if user is not authenticated
 if not st.session_state['user_authenticated']:

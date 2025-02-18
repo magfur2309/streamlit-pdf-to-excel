@@ -29,8 +29,11 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
     no_fp, nama_penjual, nama_pembeli = None, None, None
 
     with pdfplumber.open(pdf_file) as pdf:
-        for page in pdf.pages:
+        for page_number, page in enumerate(pdf.pages, start=1):
             text = page.extract_text()
+            st.write(f"### Page {page_number} Text Extracted:")
+            st.text(text)  # Show extracted text for debugging
+            
             if text:
                 no_fp_match = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
                 if no_fp_match:
@@ -46,6 +49,9 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             
             # Extract table data from the page
             table = page.extract_table()
+            st.write(f"### Page {page_number} Table Extracted:")
+            st.write(table)  # Show extracted table for debugging
+
             if table:
                 # Find the index of the "No." column in the table
                 header = table[0]
@@ -83,6 +89,8 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                                 tanggal_faktur  
                             ]
                             data.append(item)
+                else:
+                    st.error(f"Column 'No.' not found on page {page_number}")
     return data
 
 st.title("Konversi Faktur Pajak PDF ke Excel")

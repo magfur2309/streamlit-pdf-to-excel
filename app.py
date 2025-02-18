@@ -11,7 +11,7 @@ def extract_data_from_pdf(pdf_file):
     menangani banyak halaman dan beberapa tabel dalam satu file.
     """
     data = []
-    faktur_counter = 1  # Untuk menjaga urutan nomor faktur
+    faktur_counter = 1
     tanggal_faktur = None  # Menyimpan tanggal faktur jika ada di halaman berikutnya
     
     month_mapping = {
@@ -26,7 +26,7 @@ def extract_data_from_pdf(pdf_file):
             if text:
                 try:
                     # Mencari tanggal faktur di setiap halaman
-                    match_tanggal = re.search(r'([0-9]{1,2})\s*(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s*([0-9]{4})', text)
+                    match_tanggal = re.search(r'(\d{1,2})\s*(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s*(\d{4})', text)
                     if match_tanggal:
                         day, month, year = match_tanggal.groups()
                         tanggal_faktur = f"{day.zfill(2)}/{month_mapping.get(month, '00')}/{year}"
@@ -39,17 +39,17 @@ def extract_data_from_pdf(pdf_file):
                     nama_penjual = nama_penjual.group(1).strip() if nama_penjual else ""
                     nama_pembeli = nama_pembeli.group(1).strip() if nama_pembeli else ""
                     
-                    # Menangkap informasi barang/jasa dengan berbagai format harga dan qty
-                    barang_pattern = re.findall(r'(.*?)\s+Rp ([\d.,]+) x ([\d.,]+) (\w+)', text)
+                    # Menangkap informasi barang/jasa
+                    barang_pattern = re.findall(r'(.+)\s+Rp ([\d.,]+) x ([\d.,]+) (\w+)', text)
                     for barang_match in barang_pattern:
                         barang, harga, qty, unit = barang_match
-                        harga = int(float(harga.replace('.', '').replace(',', '.')))
-                        qty = int(float(qty.replace('.', '').replace(',', '.')))
+                        harga = float(harga.replace('.', '').replace(',', '.'))
+                        qty = float(qty.replace('.', '').replace(',', '.'))
                         total = harga * qty
                         dpp = total / 1.11  # Menghitung DPP dengan asumsi PPN 11%
                         ppn = total - dpp
                         
-                        data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, barang.strip(), harga, unit, qty, total, dpp, ppn, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
+                        data.append([faktur_counter, no_fp, nama_penjual, nama_pembeli, barang.strip(), int(harga), unit, int(qty), int(total), int(dpp), int(ppn), tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
                     
                     # Pastikan setiap faktur memiliki tanggal faktur yang benar
                     if data and tanggal_faktur:
@@ -57,7 +57,7 @@ def extract_data_from_pdf(pdf_file):
                             if row[11] == "Tidak ditemukan":
                                 row[11] = tanggal_faktur
                     
-                    faktur_counter += 1  # Naikkan counter jika ada faktur baru
+                    faktur_counter += 1
                 except Exception as e:
                     st.error(f"Terjadi kesalahan dalam membaca halaman: {e}")
     
@@ -80,7 +80,7 @@ if uploaded_files:
         df = pd.DataFrame(all_data, columns=["No", "No FP", "Nama Penjual", "Nama Pembeli", "Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
         
         df = df[df['Barang'] != ""].reset_index(drop=True)
-        df.index = df.index + 1  # Mulai index dari 1
+        df.index = df.index + 1
         
         # Menampilkan pratinjau data
         st.write("### Pratinjau Data yang Diekstrak")

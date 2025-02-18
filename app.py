@@ -29,6 +29,12 @@ def extract_data_from_pdf(pdf_file):
                         no_fp = faktur_counter
                         kode_barang = row[1]
                         nama_barang = row[2].replace("\n", " ")  # Gabungkan jika multi-baris
+                        # Hapus informasi harga, potongan harga, dan PPNBM dari nama barang
+                        nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+', '', nama_barang)
+                        nama_barang = re.sub(r'Potongan Harga = Rp [\d.,]+', '', nama_barang)
+                        nama_barang = re.sub(r'PPnBM \(\d+,?\d*%\) = Rp [\d.,]+', '', nama_barang)
+                        nama_barang = nama_barang.strip()
+                        
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         if harga_qty_info:
                             harga = int(float(harga_qty_info.group(1).replace('.', '').replace(',', '.')))

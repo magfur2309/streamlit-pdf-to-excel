@@ -13,6 +13,7 @@ def extract_data_from_pdf(pdf_file):
     data = []
     faktur_counter = 1  # Untuk menjaga urutan nomor faktur
     tanggal_faktur = None  # Menyimpan tanggal faktur jika ada di halaman berikutnya
+    last_tanggal_faktur = None  # Menyimpan tanggal faktur terakhir yang ditemukan
     
     month_mapping = {
         "Januari": "01", "Februari": "02", "Maret": "03", "April": "04",
@@ -28,6 +29,7 @@ def extract_data_from_pdf(pdf_file):
                 if date_match:
                     day, month, year = date_match.groups()
                     tanggal_faktur = f"{year}-{month_mapping[month]}-{day.zfill(2)}"
+                    last_tanggal_faktur = tanggal_faktur  # Simpan tanggal terakhir yang ditemukan
             
             table = page.extract_table()
             if table:
@@ -57,6 +59,12 @@ def extract_data_from_pdf(pdf_file):
                     
         faktur_counter += 1  # Naikkan counter jika ada faktur baru
     
+    # Jika semua halaman sebelumnya tidak memiliki tanggal, gunakan tanggal terakhir yang ditemukan
+    if last_tanggal_faktur:
+        for row in data:
+            if row[9] == "Tidak ditemukan":
+                row[9] = last_tanggal_faktur
+
     return data
 
 # Streamlit UI

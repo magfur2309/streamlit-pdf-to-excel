@@ -3,14 +3,20 @@ import pandas as pd
 import pdfplumber
 import io
 import re
+import uuid
 
 # Initialize session state variables
 if 'upload_count' not in st.session_state:
     st.session_state['upload_count'] = 0
+
 if 'user_authenticated' not in st.session_state:
     st.session_state['user_authenticated'] = False
+
 if 'username' not in st.session_state:
     st.session_state['username'] = None
+
+if 'session_id' not in st.session_state:
+    st.session_state['session_id'] = str(uuid.uuid4())  # Generate a unique session ID
 
 # Function to check if the user has exceeded the upload limit
 def check_upload_limit():
@@ -31,6 +37,7 @@ def login(username, password):
     if username in users and users[username] == password:
         st.session_state['user_authenticated'] = True
         st.session_state['username'] = username
+        st.session_state['upload_count'] = 0  # Reset upload count when logged in (for demo user on a new device)
         return True
     return False
 
@@ -55,11 +62,13 @@ if not st.session_state['user_authenticated']:
                 st.error("Username atau password salah. Coba lagi.")
 else:
     # Main application code after login
-    st.title("Konversi Faktur Pajak PDF ke Excel")
 
     # Check upload limit for demo users
     if check_upload_limit():
         st.stop()  # Stop the process if the demo user has exceeded the upload limit
+
+    # Main Application: PDF Upload and Processing
+    st.title("Konversi Faktur Pajak PDF ke Excel")
 
     # File uploader for PDF invoices
     uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF, bisa lebih dari satu)", type=["pdf"], accept_multiple_files=True)

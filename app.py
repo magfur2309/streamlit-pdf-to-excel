@@ -75,7 +75,8 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                 for row in table:
                     if len(row) >= 4 and row[0].isdigit():
                         if pending_item:
-                            pending_item[3] += " " + " ".join(row[2].split("\n")).strip()
+                            if row and len(row) > 2 and row[2]:
+                                pending_item[3] += " " + " ".join(row[2].split("\n")).strip()
                             data.append(pending_item)
                             pending_item = None
                         
@@ -101,7 +102,7 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                             nama_barang, harga, unit, qty, total, dpp, ppn, 
                             tanggal_faktur  
                         ]
-                    elif pending_item:
+                    elif pending_item and row and len(row) > 2 and row[2]:
                         pending_item[3] += " " + " ".join(row[2].split("\n")).strip()
 
     if pending_item:

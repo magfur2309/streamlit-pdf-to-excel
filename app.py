@@ -98,17 +98,20 @@ if uploaded_files:
     
     if all_data:
         df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Nama Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
-        df.index = df.index + 1  
+        df.index = df.index + 1  # Set index starting from 1
         
+        # Display the extracted data preview
         st.write("### Pratinjau Data yang Diekstrak")
         st.dataframe(df)
         
+        # Save the data as an Excel file
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df.to_excel(writer, index=True, sheet_name='Faktur Pajak')
             writer.close()
         output.seek(0)
         
+        # Add download button for the Excel file
         st.download_button(label="📥 Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
         st.error("Gagal mengekstrak data. Pastikan format faktur sesuai.")

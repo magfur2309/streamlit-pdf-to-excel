@@ -24,11 +24,6 @@ def login_page():
     
     return False
 
-def logout():
-    if st.button("Logout"):
-        st.session_state["logged_in"] = False
-        st.rerun()
-
 def extract_tanggal_faktur(pdf):
     month_mapping = {
         "Januari": "01", "Februari": "02", "Maret": "03", "April": "04",
@@ -52,7 +47,6 @@ def extract_tanggal_faktur(pdf):
 def extract_data_from_pdf(pdf_file, tanggal_faktur):
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
-    pending_item = None
 
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
@@ -72,13 +66,12 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             
             table = page.extract_table()
             if table:
+                previous_row = None
                 for row in table:
                     if len(row) >= 4 and row[0].isdigit():
-                        if pending_item:
-                            if row and len(row) > 2 and row[2]:
-                                pending_item[3] += " " + " ".join(row[2].split("\n")).strip()
-                            data.append(pending_item)
-                            pending_item = None
+                        if previous_row and row[0] == "":
+                            previous_row[2] += " " + " ".join(row[2].split("\n")).strip()
+                            continue
                         
                         cleaned_lines = [line for line in row[2].split("\n") if not re.search(r'Rp\s[\d,.]+|PPnBM|Potongan Harga', line)]
                         nama_barang = " ".join(cleaned_lines).strip()
@@ -95,23 +88,19 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         dpp = total / 1.11
                         ppn = total - dpp
                         
-                        pending_item = [
+                        item = [
                             no_fp if no_fp else "Tidak ditemukan", 
                             nama_penjual if nama_penjual else "Tidak ditemukan", 
                             nama_pembeli if nama_pembeli else "Tidak ditemukan", 
                             nama_barang, harga, unit, qty, total, dpp, ppn, 
                             tanggal_faktur  
                         ]
-                    elif pending_item and row and len(row) > 2 and row[2]:
-                        pending_item[3] += " " + " ".join(row[2].split("\n")).strip()
-
-    if pending_item:
-        data.append(pending_item)
+                        data.append(item)
+                        previous_row = item
     return data
 
 def main_app():
     st.title("Konversi Faktur Pajak PDF ke Excel")
-    logout()
     uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF, bisa lebih dari satu)", type=["pdf"], accept_multiple_files=True)
     
     if uploaded_files:

@@ -5,14 +5,18 @@ import io
 import re
 
 # Dummy user database (For demo purposes)
-USER_CREDENTIALS = {
-    "admin": "password",  # Super Admin account
-    "demo_user": "demo_password"      # Demo User account
-}
+USER_CREDENTIALS = {}
 
 # Function to check if user is logged in
 def check_login(username, password):
     if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
+        return True
+    return False
+
+# Function to create a new user
+def create_user(username, password):
+    if username not in USER_CREDENTIALS:
+        USER_CREDENTIALS[username] = password
         return True
     return False
 
@@ -92,64 +96,60 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
     return data
 
 # Streamlit UI
-st.title("Konversi Faktur Pajak PDF To Ms Excel")
+st.title("Konversi Faktur Pajak PDF ke Excel")
 
 # Check if user is logged in
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False  # Initialize the session state
 
-# If user is not logged in, show the login form
+# If user is not logged in, show the login or registration form
 if not st.session_state["logged_in"]:
-    with st.form(key='login_form'):
-        st.subheader("Login")
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        login_button = st.form_submit_button("Login")
-        
-        if login_button:
-            if check_login(username, password):
-                st.session_state["logged_in"] = True
-                st.session_state["username"] = username
-                st.session_state["is_super_admin"] = username == "super_admin"  # Check if the user is super admin
-                st.success(f"Welcome, {username}!")
-                st.experimental_rerun()
-            else:
-                st.error("Invalid username or password")
+    option = st.selectbox("Choose an option", ["Login", "Create an account"])
+    
+    if option == "Login":
+        with st.form(key='login_form'):
+            st.subheader("Login")
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            login_button = st.form_submit_button("Login")
+            
+            if login_button:
+                if check_login(username, password):
+                    st.session_state["logged_in"] = True
+                    st.session_state["username"] = username
+                    st.success(f"Welcome, {username}!")
+                    st.experimental_rerun()
+                else:
+                    st.error("Invalid username or password")
+    
+    if option == "Create an account":
+        with st.form(key='register_form'):
+            st.subheader("Create an Account")
+            new_username = st.text_input("Username")
+            new_password = st.text_input("Password", type="password")
+            confirm_password = st.text_input("Confirm Password", type="password")
+            create_account_button = st.form_submit_button("Create Account")
+            
+            if create_account_button:
+                if new_password == confirm_password:
+                    if create_user(new_username, new_password):
+                        st.session_state["logged_in"] = True
+                        st.session_state["username"] = new_username
+                        st.success(f"Account created successfully! Welcome, {new_username}!")
+                        st.experimental_rerun()
+                    else:
+                        st.error("Username already exists")
+                else:
+                    st.error("Passwords do not match")
 else:
     # User is logged in, show the main functionality
-    is_demo_user = st.session_state["username"] == "demo_user"
+    is_demo_user = st.session_state["username"]
+    
     uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF, bisa lebih dari satu)", type=["pdf"], accept_multiple_files=True)
 
-    if is_demo_user:
-        if len(uploaded_files) > 50:
-            st.error("Demo user can only upload a maximum of 50 files.")
-        else:
-            all_data = []
-            
-            for uploaded_file in uploaded_files:
-                tanggal_faktur = extract_tanggal_faktur(uploaded_file)  
-                extracted_data = extract_data_from_pdf(uploaded_file, tanggal_faktur)
-                if extracted_data:
-                    all_data.extend(extracted_data)
-            
-            if all_data:
-                df = pd.DataFrame(all_data, columns=["No FP", "Nama Penjual", "Nama Pembeli", "Nama Barang", "Harga", "Unit", "QTY", "Total", "DPP", "PPN", "Tanggal Faktur"])
-                df.index = df.index + 1  
-                
-                st.write("### Pratinjau Data yang Diekstrak")
-                st.dataframe(df)
-                
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df.to_excel(writer, index=True, sheet_name='Faktur Pajak')
-                    writer.close()
-                output.seek(0)
-                
-                st.download_button(label="📥 Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-            else:
-                st.error("Gagal mengekstrak data. Pastikan format faktur sesuai.")
-    
-    elif st.session_state["is_super_admin"]:
+    if len(uploaded_files) > 50:
+        st.error("You can only upload a maximum of 50 files.")
+    else:
         all_data = []
         
         for uploaded_file in uploaded_files:

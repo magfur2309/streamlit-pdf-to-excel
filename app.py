@@ -4,53 +4,6 @@ import pdfplumber
 import io
 import re
 
-# Simpan akun & password dalam dictionary
-USERS = {
-    "admin": "admin",
-    "demo": "123456"
-}
-
-# Maksimum upload untuk user demo
-MAX_UPLOADS_DEMO = 20
-
-# Inisialisasi session state untuk login & limit upload
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.username = None
-    st.session_state.upload_count = 0  # Hanya untuk user demo
-
-# Halaman login
-def login_page():
-    st.title("Login Page")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    login_button = st.button("Login")
-
-    if login_button:
-        if username in USERS and USERS[username] == password:
-            st.session_state.logged_in = True
-            st.session_state.username = username
-            if username == "demo":
-                st.session_state.upload_count = 0  # Reset counter untuk perangkat baru
-            st.success(f"Login berhasil sebagai {username}")
-            st.experimental_rerun()
-        else:
-            st.error("Username atau password salah!")
-
-# Jika belum login, tampilkan halaman login
-if not st.session_state.logged_in:
-    login_page()
-    st.stop()
-
-# Jika sudah login, tampilkan aplikasi utama
-st.title("Konversi Faktur Pajak PDF ke Excel")
-
-if st.session_state.username == "demo" and st.session_state.upload_count >= MAX_UPLOADS_DEMO:
-    st.error("Akun demo telah mencapai batas maksimal upload (20 PDF). Silakan login dari perangkat lain atau gunakan akun admin.")
-    st.stop()
-
-uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF, bisa lebih dari satu)", type=["pdf"], accept_multiple_files=True)
-
 def extract_tanggal_faktur(pdf):
     month_mapping = {
         "Januari": "01", "Februari": "02", "Maret": "03", "April": "04",
@@ -93,27 +46,44 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             
             table = page.extract_table()
             if table:
+                previous_row = None
                 for row in table:
                     if len(row) >= 4 and row[0].isdigit():
-                        nama_barang = " ".join(row[2].split("\n")).strip()
-                        harga, qty, unit = 0, 0, "Unknown"
+                        if previous_row and row[0] == "":
+                            previous_row[2] += " " + " ".join(row[2].split("\n")).strip()
+                            continue
+                        
+                        cleaned_lines = [line for line in row[2].split("\n") if not re.search(r'Rp\s[\d,.]+|PPnBM|Potongan Harga', line)]
+                        nama_barang = " ".join(cleaned_lines).strip()
+                        
+                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
+                        if harga_qty_info:
+                            harga = int(float(harga_qty_info.group(1).replace('.', '').replace(',', '.')))
+                            qty = int(float(harga_qty_info.group(2).replace('.', '').replace(',', '.')))
+                            unit = harga_qty_info.group(3)
+                        else:
+                            harga, qty, unit = 0, 0, "Unknown"
+                        
+                        total = harga * qty
+                        dpp = total / 1.11
+                        ppn = total - dpp
+                        
                         item = [
                             no_fp if no_fp else "Tidak ditemukan", 
                             nama_penjual if nama_penjual else "Tidak ditemukan", 
                             nama_pembeli if nama_pembeli else "Tidak ditemukan", 
-                            nama_barang, harga, unit, qty, 0, 0, 0, 
+                            nama_barang, harga, unit, qty, total, dpp, ppn, 
                             tanggal_faktur  
                         ]
                         data.append(item)
+                        previous_row = item
     return data
 
+st.title("Konversi Faktur Pajak PDF ke Excel")
+
+uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF, bisa lebih dari satu)", type=["pdf"], accept_multiple_files=True)
+
 if uploaded_files:
-    if st.session_state.username == "demo":
-        if st.session_state.upload_count + len(uploaded_files) > MAX_UPLOADS_DEMO:
-            st.error("Melebihi batas maksimal upload untuk akun demo.")
-            st.stop()
-        st.session_state.upload_count += len(uploaded_files)
-    
     all_data = []
     
     for uploaded_file in uploaded_files:
@@ -137,9 +107,3 @@ if uploaded_files:
         st.download_button(label="📥 Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
         st.error("Gagal mengekstrak data. Pastikan format faktur sesuai.")
-
-if st.button("Logout"):
-    st.session_state.logged_in = False
-    st.session_state.username = None
-    st.session_state.upload_count = 0
-    st.experimental_rerun()

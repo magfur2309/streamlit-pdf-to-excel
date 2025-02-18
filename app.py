@@ -22,6 +22,13 @@ def extract_data_from_pdf(pdf_file):
     
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
+            text = page.extract_text()
+            if text:
+                date_match = re.search(r'(\d{1,2})\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s+(\d{4})', text)
+                if date_match:
+                    day, month, year = date_match.groups()
+                    tanggal_faktur = f"{year}-{month_mapping[month]}-{day.zfill(2)}"
+            
             table = page.extract_table()
             if table:
                 for row in table:

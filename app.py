@@ -7,16 +7,12 @@ from datetime import datetime
 
 def extract_data_from_pdf(pdf_file):
     """
-    Fungsi untuk mengekstrak data dari file PDF dan mengonversinya ke format tabel,
-    menangani banyak halaman dan beberapa tabel dalam satu file.
+    Fungsi untuk mengekstrak data dari PDF, menangani banyak halaman,
+    menggabungkan tabel dari seluruh halaman agar urutannya sesuai dengan PDF.
     """
     data = []
-    temp_data = []  # Menyimpan data sebelum memasukkannya ke list utama
-    faktur_counter = 1  # Untuk menjaga urutan nomor faktur
-    tanggal_faktur = None  # Menyimpan tanggal faktur jika ada di halaman berikutnya
-    nama_penjual = None
-    nama_pembeli = None
-    no_fp = None
+    all_tables = []  # Menyimpan semua tabel dari semua halaman
+    no_fp, nama_penjual, nama_pembeli, tanggal_faktur = None, None, None, None
     
     month_mapping = {
         "Januari": "01", "Februari": "02", "Maret": "03", "April": "04",
@@ -25,8 +21,9 @@ def extract_data_from_pdf(pdf_file):
     }
     
     with pdfplumber.open(pdf_file) as pdf:
-        for page in pdf.pages:
+        for i, page in enumerate(pdf.pages):
             text = page.extract_text()
+            
             if text:
                 # Ambil No FP
                 no_fp_match = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
@@ -39,31 +36,30 @@ def extract_data_from_pdf(pdf_file):
                     day, month, year = date_match.groups()
                     tanggal_faktur = f"{year}-{month_mapping[month]}-{day.zfill(2)}"
                 
-                # Ambil Nama Penjual tanpa alamat
+                # Ambil Nama Penjual
                 penjual_match = re.search(r'Nama\s*:\s*([\w\s\-.,&]+)\nAlamat', text)
                 if penjual_match:
                     nama_penjual = penjual_match.group(1).strip()
                 
-                # Ambil Nama Pembeli tanpa alamat
+                # Ambil Nama Pembeli
                 pembeli_match = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*([\w\s\-.,&]+)\nAlamat', text)
                 if pembeli_match:
                     nama_pembeli = pembeli_match.group(1).strip()
             
-            # Simpan semua tabel dari semua halaman terlebih dahulu
+            # Ambil semua tabel
             table = page.extract_table()
             if table:
-                temp_data.extend(table)
+                all_tables.extend(table)  # Simpan semua tabel dalam urutan yang benar
 
-        # Proses tabel setelah semua halaman dibaca
-        for row in temp_data:
-            if len(row) >= 4 and row[0].isdigit():  # Pastikan baris valid
-                nama_barang = row[2].replace("\n", " ")  # Gabungkan jika multi-baris
+        # Proses tabel setelah semua halaman diproses
+        for row in all_tables:
+            if len(row) >= 4 and row[0].isdigit():  # Pastikan hanya memproses baris dengan angka di kolom pertama
+                nama_barang = row[2].replace("\n", " ").strip()
                 nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+', '', nama_barang)
                 nama_barang = re.sub(r'Potongan Harga = Rp [\d.,]+', '', nama_barang)
                 nama_barang = re.sub(r'PPnBM \(\d+,?\d*%\) = Rp [\d.,]+', '', nama_barang)
-                nama_barang = nama_barang.strip()
                 
-                # Proses harga & quantity
+                # Ekstrak harga dan quantity
                 harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                 if harga_qty_info:
                     harga = int(float(harga_qty_info.group(1).replace('.', '').replace(',', '.')))
@@ -83,8 +79,6 @@ def extract_data_from_pdf(pdf_file):
                     nama_barang, harga, unit, qty, total, dpp, ppn, 
                     tanggal_faktur if tanggal_faktur else "Tidak ditemukan"
                 ])
-        
-        faktur_counter += 1  # Naikkan counter jika ada faktur baru
     
     return data
 
@@ -107,7 +101,7 @@ if uploaded_files:
         df = df[df['Nama Barang'] != ""].reset_index(drop=True)
         df.index = df.index + 1  # Mulai index dari 1
         
-        # Jika tanggal faktur hanya ditemukan di halaman terakhir, terapkan ke semua baris
+        # Pastikan semua baris memiliki tanggal faktur dari halaman terakhir
         if "Tidak ditemukan" in df["Tanggal Faktur"].values and df["Tanggal Faktur"].iloc[-1] != "Tidak ditemukan":
             df["Tanggal Faktur"] = df["Tanggal Faktur"].replace("Tidak ditemukan", df["Tanggal Faktur"].iloc[-1])
         

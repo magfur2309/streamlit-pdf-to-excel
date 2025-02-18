@@ -13,8 +13,8 @@ def extract_data_from_pdf(pdf_file):
     data = []
     faktur_counter = 1  # Untuk menjaga urutan nomor faktur
     tanggal_faktur = None  # Menyimpan tanggal faktur jika ada di halaman berikutnya
-    nama_penjual = "Tidak ditemukan"
-    nama_pembeli = "Tidak ditemukan"
+    nama_penjual = None
+    nama_pembeli = None
     
     month_mapping = {
         "Januari": "01", "Februari": "02", "Maret": "03", "April": "04",
@@ -26,16 +26,16 @@ def extract_data_from_pdf(pdf_file):
         for page in pdf.pages:
             text = page.extract_text()
             if text:
-                date_match = re.search(r'(\d{1,2})\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s+(\d{4})', text)
+                date_match = re.search(r'\b(\d{1,2})\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s+(\d{4})\b', text)
                 if date_match:
                     day, month, year = date_match.groups()
                     tanggal_faktur = f"{year}-{month_mapping[month]}-{day.zfill(2)}"
                 
-                penjual_match = re.search(r'Nama Penjual:\s*(.*)', text)
+                penjual_match = re.search(r'Nama Penjual[:\s]+([\w\s\-.,&]+)', text)
                 if penjual_match:
                     nama_penjual = penjual_match.group(1).strip()
                 
-                pembeli_match = re.search(r'Nama Pembeli:\s*(.*)', text)
+                pembeli_match = re.search(r'Nama Pembeli[:\s]+([\w\s\-.,&]+)', text)
                 if pembeli_match:
                     nama_pembeli = pembeli_match.group(1).strip()
             
@@ -62,7 +62,7 @@ def extract_data_from_pdf(pdf_file):
                         dpp = total / 1.11  # Menghitung DPP dengan asumsi PPN 11%
                         ppn = total - dpp
                         
-                        data.append([no_fp, nama_penjual, nama_pembeli, nama_barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
+                        data.append([no_fp, nama_penjual if nama_penjual else "Tidak ditemukan", nama_pembeli if nama_pembeli else "Tidak ditemukan", nama_barang, harga, unit, qty, total, dpp, ppn, tanggal_faktur if tanggal_faktur else "Tidak ditemukan"])
                     
         faktur_counter += 1  # Naikkan counter jika ada faktur baru
     

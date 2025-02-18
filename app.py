@@ -20,7 +20,7 @@ def extract_tanggal_faktur(pdf):
                 if date_match:
                     day, month, year = date_match.groups()
                     tanggal_faktur = f"{year}-{month_mapping[month]}-{day.zfill(2)}"
-                    break  # Hentikan pencarian setelah menemukan tanggal
+                    break  
     
     return tanggal_faktur
 
@@ -46,8 +46,13 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
             
             table = page.extract_table()
             if table:
+                previous_row = None
                 for row in table:
                     if len(row) >= 4 and row[0].isdigit():
+                        if previous_row and row[0] == "":
+                            previous_row[2] += " " + " ".join(row[2].split("\n")).strip()
+                            continue
+                        
                         nama_barang = " ".join(row[2].split("\n")).strip()
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         if harga_qty_info:
@@ -61,13 +66,15 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                         dpp = total / 1.11
                         ppn = total - dpp
                         
-                        data.append([
+                        item = [
                             no_fp if no_fp else "Tidak ditemukan", 
                             nama_penjual if nama_penjual else "Tidak ditemukan", 
                             nama_pembeli if nama_pembeli else "Tidak ditemukan", 
                             nama_barang, harga, unit, qty, total, dpp, ppn, 
                             tanggal_faktur  
-                        ])
+                        ]
+                        data.append(item)
+                        previous_row = item
     return data
 
 st.title("Konversi Faktur Pajak PDF ke Excel")
@@ -78,7 +85,7 @@ if uploaded_files:
     all_data = []
     
     for uploaded_file in uploaded_files:
-        tanggal_faktur = extract_tanggal_faktur(uploaded_file)  # Ambil tanggal faktur spesifik tiap file
+        tanggal_faktur = extract_tanggal_faktur(uploaded_file)  
         extracted_data = extract_data_from_pdf(uploaded_file, tanggal_faktur)
         if extracted_data:
             all_data.extend(extracted_data)

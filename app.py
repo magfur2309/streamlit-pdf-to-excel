@@ -63,6 +63,7 @@ def extract_tanggal_faktur(pdf):
     return tanggal_faktur
 
 # Function to extract data from the PDF
+# Function to extract data from the PDF
 def extract_data_from_pdf(pdf_file, tanggal_faktur):
     data = []
     no_fp, nama_penjual, nama_pembeli = None, None, None
@@ -83,17 +84,20 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur):
                 pembeli_match = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*([\w\s\-.,&]+)\nAlamat', text)
                 if pembeli_match:
                     nama_pembeli = pembeli_match.group(1).strip()
-            
+
             table = page.extract_table()
             if table:
                 previous_row = None
                 for row in table:
                     if len(row) >= 4 and row[0].isdigit():
-                        if previous_row and row[0] == "":
-                            previous_row[2] += " " + " ".join(row[2].split("\n")).strip()
+                        # Extract "Nama Barang" and remove unwanted patterns
+                        nama_barang = " ".join(row[2].split("\n")).strip()
+
+                        # Exclude rows where 'nama_barang' contains unwanted patterns such as price with quantity, discount, or PPnBM
+                        if re.search(r'Rp\s*[\d.,]+\s*x\s*[\d.,]+\s*(Piece|Pcs)', nama_barang) or 'Potongan Harga' in nama_barang or 'PPnBM' in nama_barang:
                             continue
                         
-                        nama_barang = " ".join(row[2].split("\n")).strip()
+                        # Regular extraction of price, quantity, and unit
                         harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
                         if harga_qty_info:
                             harga = int(float(harga_qty_info.group(1).replace('.', '').replace(',', '.')))

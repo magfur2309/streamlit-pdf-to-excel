@@ -3,6 +3,7 @@ import pandas as pd
 import pdfplumber
 import io
 import re
+import hashlib
 
 def find_invoice_date(pdf_file):
     """Mencari tanggal faktur dalam PDF, mulai dari halaman pertama."""

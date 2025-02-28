@@ -101,18 +101,48 @@ users = {
     "demo": hashlib.sha256("demo123".encode()).hexdigest()
 }
 
-# Inisialisasi session state untuk menyimpan jumlah unggahan user
+# Inisialisasi session state untuk login
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False
+if "username" not in st.session_state:
+    st.session_state["username"] = None
 if "upload_count" not in st.session_state:
     st.session_state["upload_count"] = {}
 
-# Data user (contoh: user demo)
-username = "demo"  # Gantilah sesuai dengan sistem autentikasi yang digunakan
-max_uploads = 10  # Batas unggahan per hari
+# Fungsi login
+def login_page():
+    st.title("Login Konversi Faktur Pajak")
 
-# Mendapatkan tanggal hari ini
+    with st.form("login_form"):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        submit = st.form_submit_button("Login")
+
+        if submit:
+            hashed_password = hashlib.sha256(password.encode()).hexdigest()
+            if username in users and users[username] == hashed_password:
+                st.session_state["logged_in"] = True
+                st.session_state["username"] = username
+                st.rerun()
+            else:
+                st.error("Username atau password salah")
+
+# Jika belum login, tampilkan login page dan hentikan program
+if not st.session_state["logged_in"]:
+    login_page()
+    st.stop()  # Mencegah komponen lain muncul sebelum login
+
+# --- KODE DI BAWAH INI HANYA UNTUK USER YANG SUDAH LOGIN ---
+st.title("Konversi Faktur Pajak PDF To Excel")
+
+# Ambil username yang sedang login
+username = st.session_state["username"]
+max_uploads = 10  # Batas maksimal unggahan per hari
+
+# Dapatkan tanggal hari ini
 today = datetime.date.today().isoformat()
 
-# Inisialisasi data user jika belum ada
+# Inisialisasi jumlah unggahan per user
 if username not in st.session_state["upload_count"]:
     st.session_state["upload_count"][username] = {"date": today, "count": 0}
 
@@ -120,19 +150,25 @@ if username not in st.session_state["upload_count"]:
 if st.session_state["upload_count"][username]["date"] != today:
     st.session_state["upload_count"][username] = {"date": today, "count": 0}
 
-# Periksa batasan unggahan
-if st.session_state["upload_count"][username]["count"] >= max_uploads:
-    st.warning(f"User demo hanya bisa mengunggah maksimal **{max_uploads} file per hari**. Silakan coba lagi besok.")
+# Cek batasan unggahan
+remaining_uploads = max_uploads - st.session_state["upload_count"][username]["count"]
+
+if remaining_uploads <= 0:
+    st.warning(f"User **{username}** hanya bisa mengunggah **{max_uploads} file per hari**. Silakan coba lagi besok.")
 else:
-    uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF)", type=["pdf"], accept_multiple_files=True)
+    uploaded_files = st.file_uploader(
+        f"Upload Faktur Pajak (PDF) — Sisa kuota: **{remaining_uploads} file**",
+        type=["pdf"], accept_multiple_files=True
+    )
 
     if uploaded_files:
         total_uploads = len(uploaded_files)
-        if st.session_state["upload_count"][username]["count"] + total_uploads > max_uploads:
-            st.error(f"Anda hanya dapat mengunggah {max_uploads - st.session_state['upload_count'][username]['count']} file lagi hari ini.")
+
+        if total_uploads > remaining_uploads:
+            st.error(f"Anda hanya dapat mengunggah {remaining_uploads} file lagi hari ini.")
         else:
             st.session_state["upload_count"][username]["count"] += total_uploads
-            st.success(f"Berhasil mengunggah {total_uploads} file! Anda telah mengunggah {st.session_state['upload_count'][username]['count']} file hari ini.")
+            st.success(f"Berhasil mengunggah {total_uploads} file! Anda telah mengunggah **{st.session_state['upload_count'][username]['count']} file** hari ini.")
 
 # Fungsi untuk login
 def login_page():

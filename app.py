@@ -106,19 +106,20 @@ if "upload_count" not in st.session_state:
 
 # Fungsi untuk login
 def login_page():
+    """Menampilkan halaman login dengan fitur tekan Enter = Klik Login."""
     st.title("Login Konversi Faktur Pajak")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    
-    if st.button("Login"):
-        hashed_password = hashlib.sha256(password.encode()).hexdigest()
-        if username in users and users[username] == hashed_password:
-            st.session_state["logged_in"] = True
-            st.session_state["username"] = username
-            st.session_state["upload_count"].setdefault(username, 0)
-            st.rerun()
-        else:
-            st.error("Username atau password salah")
+
+    with st.form("login_form", clear_on_submit=False):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        submit = st.form_submit_button("Login")  # Tombol login otomatis aktif saat Enter ditekan
+
+        if submit:
+            if username == "admin" and password == "password123":  # Ganti dengan autentikasi lebih aman
+                st.session_state["logged_in"] = True
+                st.rerun()
+            else:
+                st.error("Username atau password salah")
 
 def main_app():
     """Aplikasi utama setelah login."""

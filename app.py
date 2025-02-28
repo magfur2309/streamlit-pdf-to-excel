@@ -95,69 +95,45 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur, expected_item_count):
                             break  
     return data
 
-# Simpan user dengan role & password yang di-hash
+# Simpan user dengan password yang di-hash
 users = {
-    "admin": {"password": hashlib.sha256("password123".encode()).hexdigest(), "role": "admin"},
-    "demo": {"password": hashlib.sha256("demo123".encode()).hexdigest(), "role": "demo"}
+    "admin": hashlib.sha256("password123".encode()).hexdigest(),
+    "demo": hashlib.sha256("demo123".encode()).hexdigest()
 }
 
-# Inisialisasi session state
-if "logged_in" not in st.session_state:
-    st.session_state["logged_in"] = False
-if "username" not in st.session_state:
-    st.session_state["username"] = None
-if "role" not in st.session_state:
-    st.session_state["role"] = None
+# Inisialisasi session state untuk menyimpan jumlah unggahan user
+if "upload_count" not in st.session_state:
+    st.session_state["upload_count"] = {}
 
-# Fungsi login
-def login_page():
-    st.title("Login Konversi Faktur Pajak")
+# Data user (contoh: user demo)
+username = "demo"  # Gantilah sesuai dengan sistem autentikasi yang digunakan
+max_uploads = 10  # Batas unggahan per hari
 
-    with st.form("login_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        submit = st.form_submit_button("Login")
+# Mendapatkan tanggal hari ini
+today = datetime.date.today().isoformat()
 
-        if submit:
-            hashed_password = hashlib.sha256(password.encode()).hexdigest()
-            if username in users and users[username]["password"] == hashed_password:
-                st.session_state["logged_in"] = True
-                st.session_state["username"] = username
-                st.session_state["role"] = users[username]["role"]
-                st.rerun()
-            else:
-                st.error("Username atau password salah")
+# Inisialisasi data user jika belum ada
+if username not in st.session_state["upload_count"]:
+    st.session_state["upload_count"][username] = {"date": today, "count": 0}
 
-# Jika belum login, tampilkan login page
-if not st.session_state["logged_in"]:
-    login_page()
-    st.stop()
+# Reset jumlah unggahan jika hari berganti
+if st.session_state["upload_count"][username]["date"] != today:
+    st.session_state["upload_count"][username] = {"date": today, "count": 0}
 
-# --- KODE HANYA UNTUK USER YANG SUDAH LOGIN ---
-st.title("Konversi Faktur Pajak PDF To Excel")
+# Periksa batasan unggahan
+if st.session_state["upload_count"][username]["count"] >= max_uploads:
+    st.warning(f"User demo hanya bisa mengunggah maksimal **{max_uploads} file per hari**. Silakan coba lagi besok.")
+else:
+    uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF)", type=["pdf"], accept_multiple_files=True)
 
-# Ambil username & role yang sedang login
-username = st.session_state["username"]
-role = st.session_state["role"]
+    if uploaded_files:
+        total_uploads = len(uploaded_files)
+        if st.session_state["upload_count"][username]["count"] + total_uploads > max_uploads:
+            st.error(f"Anda hanya dapat mengunggah {max_uploads - st.session_state['upload_count'][username]['count']} file lagi hari ini.")
+        else:
+            st.session_state["upload_count"][username]["count"] += total_uploads
+            st.success(f"Berhasil mengunggah {total_uploads} file! Anda telah mengunggah {st.session_state['upload_count'][username]['count']} file hari ini.")
 
-# Definisikan uploaded_files agar selalu ada
-uploaded_files = None
-
-# Upload file hanya untuk role "demo" atau "admin"
-if role == "demo":
-    st.subheader("Upload Faktur Pajak (PDF) — Sisa kuota: 10 file")
-    uploaded_files = st.file_uploader(
-        "Drag and drop files here", type=["pdf"], accept_multiple_files=True
-    )
-elif role == "admin":
-    st.subheader("Upload Faktur Pajak (PDF, bisa lebih dari satu)")
-    uploaded_files = st.file_uploader(
-        "Drag and drop files here", type=["pdf"], accept_multiple_files=True
-    )
-
-# Pastikan uploaded_files tidak None sebelum diproses
-if uploaded_files is not None and len(uploaded_files) > 0:
-    st.success(f"Berhasil mengunggah {len(uploaded_files)} file!")
 # Fungsi untuk login
 def login_page():
     """Menampilkan halaman login dengan fitur tekan Enter = Klik Login."""

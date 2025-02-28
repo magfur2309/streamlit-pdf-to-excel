@@ -101,6 +101,7 @@ def login_page():
     
     if st.button("Login"):
         if username == "admin" and password == "password123":  # Ganti dengan metode autentikasi yang lebih aman
+            if username == "demo" and password == "demo123":  # Ganti dengan metode autentikasi yang lebih aman
             st.session_state["logged_in"] = True
             st.rerun()
         else:

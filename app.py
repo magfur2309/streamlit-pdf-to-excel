@@ -108,8 +108,6 @@ if "username" not in st.session_state:
     st.session_state["username"] = None
 if "role" not in st.session_state:
     st.session_state["role"] = None
-if "upload_count" not in st.session_state:
-    st.session_state["upload_count"] = {}
 
 # Fungsi login
 def login_page():
@@ -133,7 +131,7 @@ def login_page():
 # Jika belum login, tampilkan login page
 if not st.session_state["logged_in"]:
     login_page()
-    st.stop()  # Hentikan eksekusi sebelum login
+    st.stop()
 
 # --- KODE HANYA UNTUK USER YANG SUDAH LOGIN ---
 st.title("Konversi Faktur Pajak PDF To Excel")
@@ -142,34 +140,21 @@ st.title("Konversi Faktur Pajak PDF To Excel")
 username = st.session_state["username"]
 role = st.session_state["role"]
 
-# Jika akun "demo", batasi jumlah halaman per file
-max_pages = 3 if role == "demo" else None  # Batasan 3 halaman untuk "demo"
-
-# Upload file (beda tampilan untuk admin dan demo)
-if role == "admin":
-    st.subheader("Upload Faktur Pajak (Tanpa Batasan)")
+# Upload file hanya untuk role "demo" atau "admin"
+if role == "demo":
+    st.subheader("Upload Faktur Pajak (PDF) — Sisa kuota: 10 file")
     uploaded_files = st.file_uploader(
-        "Silakan unggah faktur (PDF), bisa lebih dari satu", type=["pdf"], accept_multiple_files=True
+        "Drag and drop files here", type=["pdf"], accept_multiple_files=True
     )
-else:
-    st.subheader("Upload Faktur Pajak (Maks 3 Halaman per File)")
+elif role == "admin":
+    st.subheader("Upload Faktur Pajak (PDF, bisa lebih dari satu)")
     uploaded_files = st.file_uploader(
-        "Silakan unggah faktur (PDF), maksimal 3 halaman per file", type=["pdf"], accept_multiple_files=True
+        "Drag and drop files here", type=["pdf"], accept_multiple_files=True
     )
-
-    # Validasi jumlah halaman hanya untuk akun demo
-    if uploaded_files:
-        for pdf in uploaded_files:
-            reader = PyPDF2.PdfReader(pdf)
-            num_pages = len(reader.pages)
-            if num_pages > max_pages:
-                st.error(f"File **{pdf.name}** memiliki {num_pages} halaman! Maksimal hanya {max_pages} halaman.")
-                st.stop()
 
 # Notifikasi sukses jika berhasil upload
 if uploaded_files:
     st.success(f"Berhasil mengunggah {len(uploaded_files)} file!")
-
 # Jika belum login, tampilkan login page dan hentikan program
 if not st.session_state["logged_in"]:
     login_page()

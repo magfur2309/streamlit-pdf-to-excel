@@ -1,99 +1,10 @@
 import streamlit as st
 import pandas as pd
 import pdfplumber
-import datetime
 import io
 import re
 import hashlib
-
-def find_invoice_date(pdf_file):
-    """Mencari tanggal faktur dalam PDF, mulai dari halaman pertama."""
-    month_map = {
-        "Januari": "01", "Februari": "02", "Maret": "03", "April": "04", "Mei": "05", "Juni": "06", 
-        "Juli": "07", "Agustus": "08", "September": "09", "Oktober": "10", "November": "11", "Desember": "12"
-    }
-    with pdfplumber.open(pdf_file) as pdf:
-        for page in pdf.pages:
-            text = page.extract_text()
-            if text:
-                date_match = re.search(r'(\d{1,2})\s*(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s*(\d{4})', text, re.IGNORECASE)
-                if date_match:
-                    day, month, year = date_match.groups()
-                    return f"{day.zfill(2)}/{month_map[month]}/{year}"
-    return "Tidak ditemukan"
-
-def count_items_in_pdf(pdf_file):
-    """Menghitung jumlah item dalam PDF berdasarkan pola nomor urut."""
-    item_count = 0
-    with pdfplumber.open(pdf_file) as pdf:
-        for page in pdf.pages:
-            text = page.extract_text()
-            if text:
-                matches = re.findall(r'^(\d{1,3})\s+000000', text, re.MULTILINE)
-                item_count += len(matches)
-    return item_count
-
-def extract_data_from_pdf(pdf_file, tanggal_faktur, expected_item_count):
-    data = []
-    no_fp, nama_penjual, nama_pembeli = None, None, None
-    item_counter = 0
-    
-    with pdfplumber.open(pdf_file) as pdf:
-        previous_row = None
-        for page in pdf.pages:
-            text = page.extract_text()
-            if text:
-                no_fp_match = re.search(r'Kode dan Nomor Seri Faktur Pajak:\s*(\d+)', text)
-                if no_fp_match:
-                    no_fp = no_fp_match.group(1)
-                
-                penjual_match = re.search(r'Nama\s*:\s*([\w\s\-.,&()]+)\nAlamat', text)
-                if penjual_match:
-                    nama_penjual = penjual_match.group(1).strip()
-                
-                pembeli_match = re.search(r'Pembeli Barang Kena Pajak/Penerima Jasa Kena Pajak:\s*Nama\s*:\s*([\w\s\-.,&()]+)\nAlamat', text)
-                if pembeli_match:
-                    nama_pembeli = pembeli_match.group(1).strip()
-                    nama_pembeli = re.sub(r'\bAlamat\b', '', nama_pembeli, flags=re.IGNORECASE).strip()
-            
-            table = page.extract_table()
-            if table:
-                for row in table:
-                    if len(row) >= 4 and row[0].isdigit():
-                        if previous_row and row[0] == "":
-                            previous_row[3] += " " + " ".join(row[2].split("\n")).strip()
-                            continue
-                        
-                        nama_barang = " ".join(row[2].split("\n")).strip()
-                        nama_barang = re.sub(r'Rp [\d.,]+ x [\d.,]+ \w+', '', nama_barang)
-                        nama_barang = re.sub(r'PPnBM \(\d+,?\d*%\) = Rp [\d.,]+', '', nama_barang)
-                        nama_barang = re.sub(r'Potongan Harga = Rp [\d.,]+', '', nama_barang).strip()
-                        
-                        potongan_harga_match = re.search(r'Potongan Harga\s*=\s*Rp\s*([\d.,]+)', row[2])
-                        potongan_harga = int(float(potongan_harga_match.group(1).replace('.', '').replace(',', '.'))) if potongan_harga_match else 0
-                        
-                        harga_qty_info = re.search(r'Rp ([\d.,]+) x ([\d.,]+) (\w+)', row[2])
-                        if harga_qty_info:
-                            harga = int(float(harga_qty_info.group(1).replace('.', '').replace(',', '.')))
-                            qty = int(float(harga_qty_info.group(2).replace('.', '').replace(',', '.')))
-                            unit = harga_qty_info.group(3)
-                        else:
-                            harga, qty, unit = 0, 0, "Unknown"
-                        
-                        total = (harga * qty) - potongan_harga
-                        potongan_harga = min(potongan_harga, total)
-                        
-                        ppn = round(total * 0.11, 2)
-                        dpp = total - ppn
-                        
-                        item = [no_fp if no_fp else "Tidak ditemukan", nama_penjual if nama_penjual else "Tidak ditemukan", nama_pembeli if nama_pembeli else "Tidak ditemukan", tanggal_faktur, nama_barang, qty, unit, harga, potongan_harga, total, dpp, ppn]
-                        data.append(item)
-                        previous_row = item
-                        item_counter += 1
-                        
-                        if item_counter >= expected_item_count:
-                            break  
-    return data
+import datetime
 
 # Simpan user dengan password yang di-hash
 users = {
@@ -101,78 +12,59 @@ users = {
     "demo": hashlib.sha256("demo123".encode()).hexdigest()
 }
 
-# Inisialisasi session state untuk menyimpan jumlah unggahan user
+# Simpan jumlah upload user demo
 if "upload_count" not in st.session_state:
     st.session_state["upload_count"] = {}
 
-# Data user (contoh: user demo)
-username = "demo"  # Gantilah sesuai dengan sistem autentikasi yang digunakan
-max_uploads = 10  # Batas unggahan per hari
+# Fungsi untuk login
+def login_page():
+    st.title("Login Konversi Faktur Pajak")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    
+    if st.button("Login"):
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+        if username in users and users[username] == hashed_password:
+            st.session_state["logged_in"] = True
+            st.session_state["username"] = username
+            st.session_state["upload_count"].setdefault(username, 0)
+            st.rerun()
+        else:
+            st.error("Username atau password salah")
 
-# Mendapatkan tanggal hari ini
-today = datetime.date.today().isoformat()
+# Fungsi utama aplikasi
+def main_app():
+    st.title("Konversi Faktur Pajak PDF to Excel")
+    username = st.session_state["username"]
 
-# Inisialisasi data user jika belum ada
-if username not in st.session_state["upload_count"]:
-    st.session_state["upload_count"][username] = {"date": today, "count": 0}
+    # Batasi upload jika user adalah demo
+    if username == "demo":
+        today = datetime.date.today().isoformat()
+        user_uploads = st.session_state["upload_count"].get(username, 0)
 
-# Reset jumlah unggahan jika hari berganti
-if st.session_state["upload_count"][username]["date"] != today:
-    st.session_state["upload_count"][username] = {"date": today, "count": 0}
+        if user_uploads >= 1:
+            st.warning("User demo hanya bisa mengunggah **1 PDF per hari**.")
+            return
 
-# Periksa batasan unggahan
-if st.session_state["upload_count"][username]["count"] >= max_uploads:
-    st.warning(f"User demo hanya bisa mengunggah maksimal **{max_uploads} file per hari**. Silakan coba lagi besok.")
-else:
     uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF)", type=["pdf"], accept_multiple_files=True)
 
     if uploaded_files:
-        total_uploads = len(uploaded_files)
-        if st.session_state["upload_count"][username]["count"] + total_uploads > max_uploads:
-            st.error(f"Anda hanya dapat mengunggah {max_uploads - st.session_state['upload_count'][username]['count']} file lagi hari ini.")
-        else:
-            st.session_state["upload_count"][username]["count"] += total_uploads
-            st.success(f"Berhasil mengunggah {total_uploads} file! Anda telah mengunggah {st.session_state['upload_count'][username]['count']} file hari ini.")
+        if username == "demo" and len(uploaded_files) > 1:
+            st.error("User demo hanya bisa mengunggah **1 file per hari**.")
+            return
 
-# Fungsi untuk login
-def login_page():
-    """Menampilkan halaman login dengan fitur tekan Enter = Klik Login."""
-    st.title("Login Konversi Faktur Pajak")
-
-    with st.form("login_form", clear_on_submit=False):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        submit = st.form_submit_button("Login")  # Tombol login otomatis aktif saat Enter ditekan
-
-        if submit:
-            if username == "admin" and password == "password123":  # Ganti dengan autentikasi lebih aman
-                st.session_state["logged_in"] = True
-                st.rerun()
-            else:
-                st.error("Username atau password salah")
-
-def main_app():
-    """Aplikasi utama setelah login."""
-    st.title("Konversi Faktur Pajak PDF To Excel")
-    uploaded_files = st.file_uploader("Upload Faktur Pajak (PDF, bisa lebih dari satu)", type=["pdf"], accept_multiple_files=True)
-    
-    if uploaded_files:
         all_data = []
         for uploaded_file in uploaded_files:
             tanggal_faktur = find_invoice_date(uploaded_file)
             detected_item_count = count_items_in_pdf(uploaded_file)
             extracted_data = extract_data_from_pdf(uploaded_file, tanggal_faktur, detected_item_count)
-            extracted_item_count = len(extracted_data)
-            
-            if detected_item_count != extracted_item_count and detected_item_count != 0:
-                st.warning(f"Jumlah item tidak cocok untuk {uploaded_file.name}: Ditemukan {detected_item_count}, diekstrak {extracted_item_count}")
             
             if extracted_data:
                 all_data.extend(extracted_data)
-        
+
         if all_data:
             df = pd.DataFrame(all_data, columns=[
-                "No FP", "Nama Penjual", "Nama Pembeli", "Tanggal Faktur", "Nama Barang", 
+                "No FP", "Nama Penjual", "Nama Pembeli", "Tanggal Faktur", "Nama Barang",
                 "Qty", "Satuan", "Harga", "Potongan Harga", "Total", "DPP", "PPN"
             ])
             df.index = df.index + 1  
@@ -186,13 +78,17 @@ def main_app():
             output.seek(0)
             
             st.download_button(label="\U0001F4E5 Unduh Excel", data=output, file_name="Faktur_Pajak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            
+            # Update upload count untuk user demo
+            if username == "demo":
+                st.session_state["upload_count"][username] = 1
         else:
             st.error("Gagal mengekstrak data. Pastikan format faktur sesuai.")
 
 if __name__ == "__main__":
     if "logged_in" not in st.session_state:
         st.session_state["logged_in"] = False
-    
+
     if not st.session_state["logged_in"]:
         login_page()
     else:

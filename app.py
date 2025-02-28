@@ -93,16 +93,28 @@ def extract_data_from_pdf(pdf_file, tanggal_faktur, expected_item_count):
                             break  
     return data
 
+# Simpan user dengan password yang di-hash
+users = {
+    "admin": hashlib.sha256("password123".encode()).hexdigest(),
+    "demo": hashlib.sha256("demo123".encode()).hexdigest()
+}
+
+# Simpan jumlah upload user demo
+if "upload_count" not in st.session_state:
+    st.session_state["upload_count"] = {}
+
+# Fungsi untuk login
 def login_page():
-    """Menampilkan halaman login."""
     st.title("Login Konversi Faktur Pajak")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
     
     if st.button("Login"):
-        if username == "admin" and password == "password123":  # Ganti dengan metode autentikasi yang lebih aman
-        username == "demo" and password == "demo123":  # Ganti dengan metode autentikasi yang lebih aman
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+        if username in users and users[username] == hashed_password:
             st.session_state["logged_in"] = True
+            st.session_state["username"] = username
+            st.session_state["upload_count"].setdefault(username, 0)
             st.rerun()
         else:
             st.error("Username atau password salah")

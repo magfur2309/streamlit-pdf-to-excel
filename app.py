@@ -140,6 +140,9 @@ st.title("Konversi Faktur Pajak PDF To Excel")
 username = st.session_state["username"]
 role = st.session_state["role"]
 
+# Definisikan uploaded_files agar selalu ada
+uploaded_files = None
+
 # Upload file hanya untuk role "demo" atau "admin"
 if role == "demo":
     st.subheader("Upload Faktur Pajak (PDF) — Sisa kuota: 10 file")
@@ -152,52 +155,9 @@ elif role == "admin":
         "Drag and drop files here", type=["pdf"], accept_multiple_files=True
     )
 
-# Notifikasi sukses jika berhasil upload
-if uploaded_files:
+# Pastikan uploaded_files tidak None sebelum diproses
+if uploaded_files is not None and len(uploaded_files) > 0:
     st.success(f"Berhasil mengunggah {len(uploaded_files)} file!")
-# Jika belum login, tampilkan login page dan hentikan program
-if not st.session_state["logged_in"]:
-    login_page()
-    st.stop()  # Mencegah komponen lain muncul sebelum login
-
-# --- KODE DI BAWAH INI HANYA UNTUK USER YANG SUDAH LOGIN ---
-st.title("Konversi Faktur Pajak PDF To Excel")
-
-# Ambil username yang sedang login
-username = st.session_state["username"]
-max_uploads = 10  # Batas maksimal unggahan per hari
-
-# Dapatkan tanggal hari ini
-today = datetime.date.today().isoformat()
-
-# Inisialisasi jumlah unggahan per user
-if username not in st.session_state["upload_count"]:
-    st.session_state["upload_count"][username] = {"date": today, "count": 0}
-
-# Reset jumlah unggahan jika hari berganti
-if st.session_state["upload_count"][username]["date"] != today:
-    st.session_state["upload_count"][username] = {"date": today, "count": 0}
-
-# Cek batasan unggahan
-remaining_uploads = max_uploads - st.session_state["upload_count"][username]["count"]
-
-if remaining_uploads <= 0:
-    st.warning(f"User **{username}** hanya bisa mengunggah **{max_uploads} file per hari**. Silakan coba lagi besok.")
-else:
-    uploaded_files = st.file_uploader(
-        f"Upload Faktur Pajak (PDF) — Sisa kuota: **{remaining_uploads} file**",
-        type=["pdf"], accept_multiple_files=True
-    )
-
-    if uploaded_files:
-        total_uploads = len(uploaded_files)
-
-        if total_uploads > remaining_uploads:
-            st.error(f"Anda hanya dapat mengunggah {remaining_uploads} file lagi hari ini.")
-        else:
-            st.session_state["upload_count"][username]["count"] += total_uploads
-            st.success(f"Berhasil mengunggah {total_uploads} file! Anda telah mengunggah **{st.session_state['upload_count'][username]['count']} file** hari ini.")
-
 # Fungsi untuk login
 def login_page():
     """Menampilkan halaman login dengan fitur tekan Enter = Klik Login."""

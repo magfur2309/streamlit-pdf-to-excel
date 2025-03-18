@@ -1,41 +1,42 @@
 import streamlit as st
-import fitz  # PyMuPDF
+import pdfplumber
 import re
 
-def extract_invoice_data(pdf_file, item_number):
-    doc = fitz.open(streamlit_file)
-    extracted_text = ""
-    for page in doc:
-        extracted_text += page.get_text("text") + "\n"
+def extract_data_from_pdf(pdf_file):
+    extracted_data = []
     
-    pattern = rf"{item_number}.*?\n.*?\n.*?SJ: (.*?), Tanggal: (.*?)\nRp ([\d,.]+) x ([\d,.]+) Kilogram\nPotongan Harga = Rp ([\d,.]+)\nPPnBM \(.*?\) = Rp ([\d,.]+)\n([\d,.]+)"
+    with pdfplumber.open(pdf_file) as pdf:
+        for page in pdf.pages:
+            text = page.extract_text()
+            if text:
+                lines = text.split("\n")
+                for line in lines:
+                    match = re.match(r"(\d+)\s+(\d{6})\s+([A-Z0-9 ,.\-]+)\s+Rp ([\d,.]+) x ([\d,.]+) Kilogram\s+Potongan Harga = Rp ([\d,.]+)\s+PPnBM \(\d+,?\d*%\) = Rp ([\d,.]+)\s+([\d,.]+)", line)
+                    if match:
+                        extracted_data.append({
+                            "No": match.group(1),
+                            "Kode": match.group(2),
+                            "Nama Barang": match.group(3),
+                            "Harga per Kg": match.group(4),
+                            "Berat": match.group(5),
+                            "Potongan Harga": match.group(6),
+                            "PPnBM": match.group(7),
+                            "Total Harga": match.group(8)
+                        })
     
-    match = re.search(pattern, extracted_text, re.DOTALL)
-    if match:
-        return {
-            "Surat Jalan (SJ)": match.group(1),
-            "Tanggal": match.group(2),
-            "Harga per Kilogram": match.group(3),
-            "Berat": match.group(4),
-            "Potongan Harga": match.group(5),
-            "PPnBM": match.group(6),
-            "Total Harga": match.group(7),
-        }
-    return None
+    return extracted_data
 
-st.title("Ekstraksi Data Faktur Pajak")
-
-uploaded_file = st.file_uploader("Upload file PDF", type="pdf")
-item_number = st.text_input("Masukkan nomor item (contoh: 33)")
-
-if uploaded_file and item_number:
-    with open("temp.pdf", "wb") as f:
-        f.write(uploaded_file.getbuffer())
+def main():
+    st.title("Sistem Pembacaan Faktur Pajak dari PDF")
+    uploaded_file = st.file_uploader("Unggah file PDF", type=["pdf"])
     
-    result = extract_invoice_data("temp.pdf", item_number)
-    
-    if result:
-        st.write("### Hasil Ekstraksi:")
-        st.json(result)
-    else:
-        st.error("Data tidak ditemukan, coba nomor lain.")
+    if uploaded_file is not None:
+        data = extract_data_from_pdf(uploaded_file)
+        if data:
+            st.write("### Data yang Diekstrak:")
+            st.table(data)
+        else:
+            st.warning("Tidak ada data yang dapat diekstrak dari file PDF ini.")
+
+if __name__ == "__main__":
+    main()

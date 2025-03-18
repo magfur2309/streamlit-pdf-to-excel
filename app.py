@@ -1,32 +1,24 @@
 import streamlit as st
 import fitz  # PyMuPDF
-import re
 
-def extract_data_from_pdf(pdf_file, nomor_urut):
+def extract_text_from_pdf(pdf_file):
     doc = fitz.open(pdf_file)
     text = ""
     for page in doc:
         text += page.get_text("text") + "\n"
-    
-    # Cari data berdasarkan nomor urut
-    pattern = rf"{nomor_urut}\\s+600600\\s+([\s\S]+?)\\n\\n"
-    match = re.search(pattern, text)
-    
-    if match:
-        return match.group(1).strip()
-    else:
-        return "Data tidak ditemukan"
+    return text
 
 st.title("Pembaca Faktur PDF")
 
 uploaded_file = st.file_uploader("Unggah file PDF", type=["pdf"])
-nomor_urut = st.number_input("Masukkan Nomor Urut", min_value=1, step=1)
 
-if uploaded_file is not None and nomor_urut:
+if uploaded_file is not None:
     with open("temp.pdf", "wb") as f:
         f.write(uploaded_file.getbuffer())
-    
-    result = extract_data_from_pdf("temp.pdf", nomor_urut)
-    
-    st.subheader(f"Data untuk Nomor Urut {nomor_urut}:")
-    st.text(result)
+
+    extracted_text = extract_text_from_pdf("temp.pdf")
+
+    # Tampilkan teks yang diekstrak untuk debugging
+    st.subheader("Teks yang Diekstrak dari PDF:")
+    st.text_area("Teks PDF:", extracted_text, height=300)
+

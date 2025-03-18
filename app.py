@@ -2,41 +2,34 @@ import streamlit as st
 import pdfplumber
 import re
 
-def extract_data_from_pdf(pdf_file):
-    extracted_data = []
+def extract_invoice_data(pdf_path):
+    with pdfplumber.open(pdf_path) as pdf:
+        text = "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
     
-    with pdfplumber.open(pdf_file) as pdf:
-        for page in pdf.pages:
-            text = page.extract_text()
-            if text:
-                lines = text.split("\n")
-                for line in lines:
-                    match = re.match(r"(\d+)\s+(\d{6})\s+([A-Z0-9 ,.\-]+)\s+Rp ([\d,.]+) x ([\d,.]+) Kilogram\s+Potongan Harga = Rp ([\d,.]+)\s+PPnBM \(\d+,?\d*%\) = Rp ([\d,.]+)\s+([\d,.]+)", line)
-                    if match:
-                        extracted_data.append({
-                            "No": match.group(1),
-                            "Kode": match.group(2),
-                            "Nama Barang": match.group(3),
-                            "Harga per Kg": match.group(4),
-                            "Berat": match.group(5),
-                            "Potongan Harga": match.group(6),
-                            "PPnBM": match.group(7),
-                            "Total Harga": match.group(8)
-                        })
+    # Ekstraksi informasi dasar
+    faktur_no = re.search(r'Kode dan Nomor Seri Faktur Pajak: (\d+)', text)
+    nama_penjual = re.search(r'Nama: ([A-Z\s]+)', text)
+    npwp_penjual = re.search(r'NPWP : (\d+)', text)
+    nama_pembeli = re.search(r'Nama : ([A-Z\s]+)', text)
+    npwp_pembeli = re.search(r'NPWP : (\d+)', text)
     
-    return extracted_data
+    return {
+        "Nomor Faktur": faktur_no.group(1) if faktur_no else "Tidak ditemukan",
+        "Nama Penjual": nama_penjual.group(1) if nama_penjual else "Tidak ditemukan",
+        "NPWP Penjual": npwp_penjual.group(1) if npwp_penjual else "Tidak ditemukan",
+        "Nama Pembeli": nama_pembeli.group(1) if nama_pembeli else "Tidak ditemukan",
+        "NPWP Pembeli": npwp_pembeli.group(1) if npwp_pembeli else "Tidak ditemukan",
+    }
 
-def main():
-    st.title("Sistem Pembacaan Faktur Pajak dari PDF")
-    uploaded_file = st.file_uploader("Unggah file PDF", type=["pdf"])
-    
-    if uploaded_file is not None:
-        data = extract_data_from_pdf(uploaded_file)
-        if data:
-            st.write("### Data yang Diekstrak:")
-            st.table(data)
-        else:
-            st.warning("Tidak ada data yang dapat diekstrak dari file PDF ini.")
+st.title("Sistem Pembacaan Faktur Pajak dari PDF")
+uploaded_file = st.file_uploader("Unggah file PDF", type=["pdf"])
 
-if __name__ == "__main__":
-    main()
+if uploaded_file is not None:
+    with open("temp.pdf", "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    
+    data = extract_invoice_data("temp.pdf")
+    
+    st.write("### Hasil Ekstraksi Faktur Pajak")
+    for key, value in data.items():
+        st.write(f"**{key}:** {value}")

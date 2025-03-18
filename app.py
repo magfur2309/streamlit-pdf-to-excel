@@ -57,12 +57,19 @@ def process_extracted_text(text):
             # Simpan data dalam format tabel
             data.append([no_fp] + parts[:4] + [nama_barang] + parts[4:])
 
+    # Cek apakah ada data yang diekstrak sebelum membuat DataFrame
+    if not data:
+        return pd.DataFrame()  # Kembalikan DataFrame kosong jika tidak ada data
+
     # Kolom tabel sesuai dengan format yang diminta
     columns = ["No FP", "Nama Perusahaan", "Nama Pembeli", "Tanggal Faktur", "Nama Barang",
                "Qty", "Satuan", "Harga", "Potongan", "Total", "DPP", "PPN"]
+    
+    # Pastikan panjang kolom tidak melebihi jumlah elemen dalam data
     df = pd.DataFrame(data, columns=columns[:len(data[0])])
 
     return df
+
 
 st.title("Ekstraksi Faktur Pajak dari PDF")
 

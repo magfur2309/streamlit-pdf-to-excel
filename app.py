@@ -17,17 +17,16 @@ def extract_data_from_pdf(pdf_file):
         
         lines = full_text.split("\n")
         for line in lines:
-            match = re.match(r"(\d+)\s+(\d+)\s+([A-Z0-9,\s]+),\s+SJ:\s+([A-Z0-9]+),\s+Tanggal:\s+(\d{2}/\d{2}/\d{4})\s+Rp ([\d,.]+) x ([\d,.]+) Kilogram.*Rp ([\d,.]+)", line)
+            match = re.match(r"(\d+)\s+(\d+)\s+Rp ([\d,.]+) x ([\d,.]+) Kilogram\s+([\d,.]+)\s+.*\s+CVC 24S KRAH, BENHUR, SJ: ([A-Z0-9]+), Tanggal:\s+(\d{2}/\d{2}/\d{4})", line)
             if match:
                 extracted_data.append({
                     "Nomor": match.group(1),
                     "Kode": match.group(2),
-                    "Nama Barang": match.group(3),
-                    "SJ": match.group(4),
-                    "Tanggal": match.group(5),
-                    "Harga per Kg": match.group(6),
-                    "Berat (Kg)": match.group(7),
-                    "Total Harga": match.group(8)
+                    "Harga per Kg": match.group(3),
+                    "Berat (Kg)": match.group(4),
+                    "Total Harga": match.group(5),
+                    "SJ": match.group(6),
+                    "Tanggal": match.group(7)
                 })
     
     return pd.DataFrame(extracted_data)
@@ -42,7 +41,7 @@ def main():
         
         if not df.empty:
             st.write("### Data yang Diekstrak")
-            st.dataframe(df)
+            st.table(df)
             
             output_file = "extracted_data.xlsx"
             df.to_excel(output_file, index=False)

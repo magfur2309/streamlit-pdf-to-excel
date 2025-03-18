@@ -14,15 +14,16 @@ def extract_filtered_data(pdf_file):
                 full_text += text + "\n"
 
         lines = full_text.split("\n")
+        nomor_urut = 1  # Inisialisasi nomor urut
         for i in range(len(lines)):
             match = re.match(r"(\d+)\s+(\d+)\s+Rp ([\d,.]+) x ([\d,.]+) Kilogram\s+([\d,.]+)", lines[i])
             if match and i+3 < len(lines):
                 potongan_harga = re.search(r"Potongan Harga = Rp ([\d,.]+)", lines[i+1])
                 ppnbm = re.search(r"PPnBM \([\d,.]+%\) = Rp ([\d,.]+)", lines[i+2])
                 nama_barang = lines[i+3]
-                
+
                 extracted_data.append({
-                    "Nomor": match.group(1),
+                    "Nomor": nomor_urut,  # Gunakan nomor urut otomatis
                     "Kode": match.group(2),
                     "Harga per Kg": match.group(3),
                     "Berat (Kg)": match.group(4),
@@ -31,6 +32,7 @@ def extract_filtered_data(pdf_file):
                     "PPnBM": ppnbm.group(1) if ppnbm else "0",
                     "Nama Barang": nama_barang
                 })
+                nomor_urut += 1  # Tambah nomor urut agar tidak terlewat
     
     return pd.DataFrame(extracted_data)
 

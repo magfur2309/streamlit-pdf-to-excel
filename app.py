@@ -1,36 +1,49 @@
 import streamlit as st
+import pandas as pd
 import pdfplumber
 import re
 
-def extract_items_from_invoice(pdf_path):
-    items = []
-    with pdfplumber.open(pdf_path) as pdf:
-        text = "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
+def extract_data_from_pdf(pdf_file):
+    extracted_data = []
     
-    # Pola regex untuk menangkap data barang
-    item_pattern = re.findall(r'(\d+)\s+([A-Z0-9\s,]+)\s+(\d+[,.]?\d*)\s+Kg\s+Rp ([\d,.]+)', text)
+    with pdfplumber.open(pdf_file) as pdf:
+        for page in pdf.pages:
+            text = page.extract_text()
+            if text:
+                lines = text.split("\n")
+                for line in lines:
+                    match = re.match(r"(\d+)\s+(\d+)\s+([A-Z0-9,\s]+),\s+SJ:\s+([A-Z0-9]+),\s+Tanggal:\s+(\d{2}/\d{2}/\d{4})\s+Rp ([\d,.]+) x ([\d,.]+) Kilogram.*Rp ([\d,.]+)", line)
+                    if match:
+                        extracted_data.append({
+                            "Nomor": match.group(1),
+                            "Kode": match.group(2),
+                            "Nama Barang": match.group(3),
+                            "SJ": match.group(4),
+                            "Tanggal": match.group(5),
+                            "Harga per Kg": match.group(6),
+                            "Berat (Kg)": match.group(7),
+                            "Total Harga": match.group(8)
+                        })
     
-    for item in item_pattern:
-        items.append({
-            "No": item[0],
-            "Nama Barang": item[1].strip(),
-            "Berat (Kg)": item[2],
-            "Harga (Rp)": item[3]
-        })
-    
-    return items
+    return pd.DataFrame(extracted_data)
 
-st.title("Ekstraksi Item Barang dari Faktur Pajak PDF")
-uploaded_file = st.file_uploader("Unggah file PDF", type=["pdf"])
+def main():
+    st.title("Ekstrak Data PDF ke Excel")
+    uploaded_file = st.file_uploader("Unggah file PDF", type=["pdf"])
+    
+    if uploaded_file:
+        st.success("File berhasil diunggah!")
+        df = extract_data_from_pdf(uploaded_file)
+        
+        if not df.empty:
+            st.write("### Data yang Diekstrak")
+            st.dataframe(df)
+            
+            output_file = "extracted_data.xlsx"
+            df.to_excel(output_file, index=False)
+            st.download_button("Unduh Excel", data=open(output_file, "rb"), file_name="data_ekstrak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        else:
+            st.error("Data tidak ditemukan atau format tidak sesuai.")
 
-if uploaded_file is not None:
-    with open("temp.pdf", "wb") as f:
-        f.write(uploaded_file.getbuffer())
-    
-    items = extract_items_from_invoice("temp.pdf")
-    
-    if items:
-        st.write("### Data Barang")
-        st.table(items)
-    else:
-        st.warning("Tidak ada data barang yang dapat diekstrak dari file PDF ini.")
+if __name__ == "__main__":
+    main()

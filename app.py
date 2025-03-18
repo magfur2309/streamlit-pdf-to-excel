@@ -3,7 +3,7 @@ import pandas as pd
 import pdfplumber
 import re
 
-def extract_data_from_pdf(pdf_file):
+def extract_filtered_data(pdf_file):
     extracted_data = []
     
     with pdfplumber.open(pdf_file) as pdf:
@@ -12,21 +12,24 @@ def extract_data_from_pdf(pdf_file):
             text = page.extract_text()
             if text:
                 full_text += text + "\n"
-        
-        st.text_area("Teks Mentah dari PDF", full_text, height=300)
-        
+
         lines = full_text.split("\n")
-        for line in lines:
-            match = re.match(r"(\d+)\s+(\d+)\s+Rp ([\d,.]+) x ([\d,.]+) Kilogram\s+([\d,.]+)\s+.*\s+CVC 24S KRAH, BENHUR, SJ: ([A-Z0-9]+), Tanggal:\s+(\d{2}/\d{2}/\d{4})", line)
-            if match:
+        for i in range(len(lines)):
+            match = re.match(r"(\d+)\s+(\d+)\s+Rp ([\d,.]+) x ([\d,.]+) Kilogram\s+([\d,.]+)", lines[i])
+            if match and i+3 < len(lines):
+                potongan_harga = re.search(r"Potongan Harga = Rp ([\d,.]+)", lines[i+1])
+                ppnbm = re.search(r"PPnBM \([\d,.]+%\) = Rp ([\d,.]+)", lines[i+2])
+                nama_barang = lines[i+3]
+                
                 extracted_data.append({
                     "Nomor": match.group(1),
                     "Kode": match.group(2),
                     "Harga per Kg": match.group(3),
                     "Berat (Kg)": match.group(4),
                     "Total Harga": match.group(5),
-                    "SJ": match.group(6),
-                    "Tanggal": match.group(7)
+                    "Potongan Harga": potongan_harga.group(1) if potongan_harga else "0",
+                    "PPnBM": ppnbm.group(1) if ppnbm else "0",
+                    "Nama Barang": nama_barang
                 })
     
     return pd.DataFrame(extracted_data)
@@ -37,13 +40,13 @@ def main():
     
     if uploaded_file:
         st.success("File berhasil diunggah!")
-        df = extract_data_from_pdf(uploaded_file)
+        df = extract_filtered_data(uploaded_file)
         
         if not df.empty:
             st.write("### Data yang Diekstrak")
             st.table(df)
             
-            output_file = "extracted_data.xlsx"
+            output_file = "filtered_data.xlsx"
             df.to_excel(output_file, index=False)
             st.download_button("Unduh Excel", data=open(output_file, "rb"), file_name="data_ekstrak.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:

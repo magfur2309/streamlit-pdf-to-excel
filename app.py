@@ -7,12 +7,12 @@ def extract_data_from_pdf(pdf_file):
     
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
-            tables = page.extract_tables()  # Menggunakan extract_tables untuk menangkap semua tabel
+            tables = page.extract_tables()
             for table in tables:
                 for row in table:
-                    # Periksa apakah baris memiliki cukup kolom dan elemen pertama adalah angka (nomor urut)
-                    if row and len(row) >= 3 and row[0] and row[0].strip().isdigit():
-                        nomor = int(row[0].strip())
+                    # Pastikan baris memiliki cukup kolom dan elemen pertama adalah angka atau kosong (untuk menangkap semua baris)
+                    if row and len(row) >= 3:
+                        nomor = row[0].strip() if row[0] and row[0].strip().isdigit() else None
                         nama_barang = row[1].strip() if row[1] else ""
                         harga_jual = row[-1].replace("Rp", "").replace(",", "").strip() if row[-1] else "0"
                         
@@ -23,9 +23,10 @@ def extract_data_from_pdf(pdf_file):
                         
                         extracted_data.append([nomor, nama_barang, harga_jual])
     
-    # Pastikan semua nomor urut terbaca
+    # Pastikan semua nomor urut terbaca dan tetap menyertakan baris yang mungkin tidak memiliki nomor
     df = pd.DataFrame(extracted_data, columns=["No.", "Nama Barang Kena Pajak / Jasa Kena Pajak", "Harga Jual (Rp)"])
-    df = df.sort_values(by=["No."]).reset_index(drop=True)  # Pastikan urutan nomor benar
+    df["No."] = pd.to_numeric(df["No."], errors='coerce')  # Konversi ke angka untuk pengurutan
+    df = df.sort_values(by=["No."], na_position='last').reset_index(drop=True)  # Pastikan urutan nomor benar
     return df
 
 def main():

@@ -7,3 +7,5 @@ pillow
 xlsxwriter
 pymupdf
 PyPDF2
+openpyxl
+ghostscript

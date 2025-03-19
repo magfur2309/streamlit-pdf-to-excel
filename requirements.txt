@@ -9,3 +9,4 @@ pymupdf
 PyPDF2
 openpyxl
 ghostscript
+camelot

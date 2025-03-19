@@ -1,52 +1,40 @@
 import streamlit as st
-import pdfplumber
+import PyPDF2
 import pandas as pd
 
 def extract_data_from_pdf(pdf_file):
-    extracted_data = []
-    
-    with pdfplumber.open(pdf_file) as pdf:
-        for page in pdf.pages:
-            tables = page.extract_tables()
-            for table in tables:
-                for row in table:
-                    # Pastikan baris memiliki cukup kolom dan elemen pertama mengandung angka atau kosong (untuk menangkap semua baris)
-                    if row and len(row) >= 3:
-                        nomor = row[0].strip() if row[0] and any(c.isdigit() for c in row[0]) else None
-                        nama_barang = row[1].strip() if row[1] else ""
-                        harga_jual = row[-1].replace("Rp", "").replace(",", "").strip() if row[-1] else "0"
-                        
-                        try:
-                            harga_jual = float(harga_jual)
-                        except ValueError:
-                            harga_jual = None
-                        
-                        extracted_data.append([nomor, nama_barang, harga_jual])
-    
-    # Pastikan semua nomor urut terbaca dan tetap menyertakan baris yang mungkin tidak memiliki nomor
-    df = pd.DataFrame(extracted_data, columns=["No.", "Nama Barang Kena Pajak / Jasa Kena Pajak", "Harga Jual (Rp)"])
-    df["No."].fillna(method='ffill', inplace=True)  # Isi nomor yang kosong dengan nomor sebelumnya
-    df["No."] = pd.to_numeric(df["No."], errors='coerce')  # Konversi ke angka untuk pengurutan
-    df = df.sort_values(by=["No."], na_position='last').reset_index(drop=True)  # Pastikan urutan nomor benar
+    pdf_reader = PyPDF2.PdfFileReader(pdf_file)
+    text = ""
+    for page_num in range(pdf_reader.numPages):
+        page = pdf_reader.getPage(page_num)
+        text += page.extract_text()
+
+    # Proses ekstraksi data dari teks
+    lines = text.split('\n')
+    data = []
+    for line in lines:
+        if "|" in line:  # Asumsi data yang relevan mengandung karakter "|"
+            parts = line.split("|")
+            if len(parts) >= 4:  # Pastikan ada 4 kolom (No., Nama Barang, Harga, dll.)
+                no = parts[1].strip()
+                nama_barang = parts[2].strip()
+                harga = parts[3].strip()
+                data.append([no, nama_barang, harga])
+
+    # Buat DataFrame dari data yang diekstrak
+    df = pd.DataFrame(data, columns=["No.", "Nama Barang Kena Pajak / Jasa Kena Pajak", "Harga Jual / Penggantian / Uang Muka / Termin (Rp)"])
     return df
 
 def main():
-    st.title("Ekstraksi Data dari PDF Faktur Pajak")
-    
-    uploaded_file = st.file_uploader("Unggah file PDF", type=["pdf"])
-    
+    st.title("Ekstrak Data Faktur PDF")
+    st.write("Unggah file PDF faktur untuk mengekstrak data.")
+
+    uploaded_file = st.file_uploader("Pilih file PDF", type="pdf")
     if uploaded_file is not None:
-        df_extracted = extract_data_from_pdf(uploaded_file)
-        
-        st.write("### Hasil Ekstraksi")
-        st.dataframe(df_extracted)
-        
-        if not df_extracted.empty:
-            excel_file = "extracted_invoice_data.xlsx"
-            df_extracted.to_excel(excel_file, index=False)
-            
-            with open(excel_file, "rb") as f:
-                st.download_button("Unduh Hasil dalam Excel", f, file_name=excel_file, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.write("File berhasil diunggah!")
+        df = extract_data_from_pdf(uploaded_file)
+        st.write("Data yang diekstrak:")
+        st.dataframe(df)
 
 if __name__ == "__main__":
     main()

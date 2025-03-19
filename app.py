@@ -4,9 +4,10 @@ import pandas as pd
 
 def extract_table_from_pdf(pdf_file):
     extracted_data = []
-    last_nomor = None  # Menyimpan nomor terakhir
+    last_nomor = None  # Menyimpan nomor terakhir yang valid
     pending_entry = None  # Menyimpan data yang mungkin terpotong di halaman
-    
+    missing_numbers = set()  # Menyimpan nomor yang hilang
+
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             tables = page.extract_tables()
@@ -41,13 +42,23 @@ def extract_table_from_pdf(pdf_file):
                             pending_entry = [nomor, nama_barang, harga_jual]
                         else:
                             extracted_data.append([nomor, nama_barang, harga_jual])
-    
+
     # Konversi ke DataFrame
     df = pd.DataFrame(extracted_data, columns=["No.", "Nama Barang Kena Pajak / Jasa Kena Pajak", "Harga Jual (Rp)"])
     
-    # Isi nomor yang kosong dengan interpolasi
+    # Konversi nomor menjadi angka dan isi yang kosong
     df["No."] = pd.to_numeric(df["No."], errors='coerce')
     df["No."].fillna(method='ffill', inplace=True)
+
+    # Mencari nomor yang hilang
+    all_numbers = set(range(int(df["No."].min()), int(df["No."].max()) + 1))
+    missing_numbers = all_numbers - set(df["No."].dropna().astype(int))
+
+    # Jika nomor 33 hilang, tambahkan baris kosong untuk nomor tersebut
+    if 33 in missing_numbers:
+        df = pd.concat([df, pd.DataFrame([[33, "MISSING DATA", None]], columns=df.columns)], ignore_index=True)
+
+    # Urutkan ulang
     df = df.sort_values(by=["No."], na_position='last').reset_index(drop=True)
     
     return df

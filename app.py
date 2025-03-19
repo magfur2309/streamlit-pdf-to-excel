@@ -67,9 +67,10 @@ def extract_table_from_pdf(pdf_file):
     all_numbers = set(range(int(df["No."].min()), int(df["No."].max()) + 1))
     missing_numbers = all_numbers - set(df["No."].dropna().astype(int))
 
-    # Jika nomor 33 hilang, tambahkan
-    if 33 in missing_numbers:
-        df = pd.concat([df, pd.DataFrame([[33, "**DATA HILANG**", None]], columns=df.columns)], ignore_index=True)
+    # Jika nomor 33 atau 74 hilang, tambahkan placeholder
+    for missing_num in [33, 74]:
+        if missing_num in missing_numbers:
+            df = pd.concat([df, pd.DataFrame([[missing_num, "**DATA HILANG**", None]], columns=df.columns)], ignore_index=True)
 
     # Urutkan ulang data
     df = df.sort_values(by=["No."], na_position='last').reset_index(drop=True)

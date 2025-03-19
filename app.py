@@ -1,12 +1,11 @@
 import streamlit as st
-import PyPDF2
+from PyPDF2 import PdfReader
 import pandas as pd
 
 def extract_data_from_pdf(pdf_file):
-    pdf_reader = PyPDF2.PdfFileReader(pdf_file)
+    pdf_reader = PdfReader(pdf_file)  # Menggunakan PdfReader, bukan PdfFileReader
     text = ""
-    for page_num in range(pdf_reader.numPages):
-        page = pdf_reader.getPage(page_num)
+    for page in pdf_reader.pages:  # Menggunakan .pages untuk mengakses halaman
         text += page.extract_text()
 
     # Proses ekstraksi data dari teks

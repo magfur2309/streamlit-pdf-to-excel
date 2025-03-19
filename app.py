@@ -3,9 +3,9 @@ from PyPDF2 import PdfReader
 import pandas as pd
 
 def extract_data_from_pdf(pdf_file):
-    pdf_reader = PdfReader(pdf_file)  # Menggunakan PdfReader, bukan PdfFileReader
+    pdf_reader = PdfReader(pdf_file)
     text = ""
-    for page in pdf_reader.pages:  # Menggunakan .pages untuk mengakses halaman
+    for page in pdf_reader.pages:
         text += page.extract_text()
 
     # Proses ekstraksi data dari teks
@@ -32,8 +32,11 @@ def main():
     if uploaded_file is not None:
         st.write("File berhasil diunggah!")
         df = extract_data_from_pdf(uploaded_file)
-        st.write("Data yang diekstrak:")
-        st.dataframe(df)
+        if not df.empty:
+            st.write("Data yang diekstrak:")
+            st.dataframe(df)
+        else:
+            st.write("Tidak ada data yang dapat diekstrak dari file PDF ini.")
 
 if __name__ == "__main__":
     main()

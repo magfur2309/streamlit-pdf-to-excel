@@ -7,13 +7,13 @@ def extract_data_from_pdf(pdf_file):
     
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
-            tables = page.extract_table()
-            if tables:
-                for row in tables:
-                    if len(row) >= 3 and row[0].isdigit():  # Pastikan ada nomor urut
-                        nomor = int(row[0])
-                        nama_barang = row[2]  # Nama Barang
-                        harga_jual = row[-1].replace("Rp", "").replace(",", "").strip()
+            tables = page.extract_tables()  # Menggunakan extract_tables untuk menangkap semua tabel
+            for table in tables:
+                for row in table:
+                    if len(row) >= 3 and row[0] and row[0].strip().isdigit():  # Pastikan ada nomor urut
+                        nomor = int(row[0].strip())
+                        nama_barang = row[2].strip() if row[2] else ""
+                        harga_jual = row[-1].replace("Rp", "").replace(",", "").strip() if row[-1] else "0"
                         
                         try:
                             harga_jual = float(harga_jual)

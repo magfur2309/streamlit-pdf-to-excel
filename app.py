@@ -6,7 +6,7 @@ def extract_table_from_pdf(pdf_file):
     extracted_data = []
     last_nomor = None  # Menyimpan nomor terakhir yang valid
     pending_entry = None  # Menyimpan data yang mungkin terpotong di halaman
-    missing_numbers = set()  # Menyimpan nomor yang hilang
+    all_numbers = set()  # Menyimpan daftar nomor yang terbaca
 
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
@@ -23,7 +23,7 @@ def extract_table_from_pdf(pdf_file):
                         except ValueError:
                             harga_jual = None
                         
-                        # Jika data terpotong dari halaman sebelumnya, gabungkan
+                        # Jika data sebelumnya terpotong di halaman sebelumnya, gabungkan
                         if pending_entry and nomor is None:
                             pending_entry[1] += " " + nama_barang
                             pending_entry[2] = harga_jual
@@ -36,6 +36,10 @@ def extract_table_from_pdf(pdf_file):
                             nomor = last_nomor
                         else:
                             last_nomor = nomor
+                        
+                        # Simpan nomor yang terbaca
+                        if nomor:
+                            all_numbers.add(int(nomor))
                         
                         # Simpan data, jika nama barang kosong, simpan sementara
                         if not nama_barang.strip():
@@ -50,15 +54,26 @@ def extract_table_from_pdf(pdf_file):
     df["No."] = pd.to_numeric(df["No."], errors='coerce')
     df["No."].fillna(method='ffill', inplace=True)
 
-    # Mencari nomor yang hilang
-    all_numbers = set(range(int(df["No."].min()), int(df["No."].max()) + 1))
-    missing_numbers = all_numbers - set(df["No."].dropna().astype(int))
+    # Mencari nomor yang hilang dalam urutan seharusnya
+    min_nomor = int(df["No."].min()) if not df["No."].isna().all() else 1
+    max_nomor = int(df["No."].max()) if not df["No."].isna().all() else 1
+    expected_numbers = set(range(min_nomor, max_nomor + 1))
 
-    # Jika nomor 33 hilang, tambahkan baris kosong untuk nomor tersebut
+    missing_numbers = expected_numbers - all_numbers
+
+    # Jika nomor 33 hilang, coba interpolasi berdasarkan nomor sebelum dan sesudahnya
     if 33 in missing_numbers:
-        df = pd.concat([df, pd.DataFrame([[33, "MISSING DATA", None]], columns=df.columns)], ignore_index=True)
+        prev_data = df[df["No."] == 32]
+        next_data = df[df["No."] == 34]
 
-    # Urutkan ulang
+        if not prev_data.empty and not next_data.empty:
+            interpolated_name = prev_data["Nama Barang Kena Pajak / Jasa Kena Pajak"].values[0] + " (lanjutan)"
+            interpolated_price = prev_data["Harga Jual (Rp)"].values[0]  # Ambil harga dari sebelumnya
+
+            new_row = pd.DataFrame([[33, interpolated_name, interpolated_price]], columns=df.columns)
+            df = pd.concat([df, new_row], ignore_index=True)
+
+    # Urutkan ulang data berdasarkan nomor
     df = df.sort_values(by=["No."], na_position='last').reset_index(drop=True)
     
     return df

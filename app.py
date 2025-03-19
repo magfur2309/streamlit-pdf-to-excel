@@ -10,9 +10,10 @@ def extract_data_from_pdf(pdf_file):
             tables = page.extract_tables()  # Menggunakan extract_tables untuk menangkap semua tabel
             for table in tables:
                 for row in table:
-                    if len(row) >= 3 and row[0] and row[0].strip().isdigit():  # Pastikan ada nomor urut
+                    # Periksa apakah baris memiliki cukup kolom dan elemen pertama adalah angka (nomor urut)
+                    if row and len(row) >= 3 and row[0] and row[0].strip().isdigit():
                         nomor = int(row[0].strip())
-                        nama_barang = row[2].strip() if row[2] else ""
+                        nama_barang = row[1].strip() if row[1] else ""
                         harga_jual = row[-1].replace("Rp", "").replace(",", "").strip() if row[-1] else "0"
                         
                         try:
@@ -22,7 +23,9 @@ def extract_data_from_pdf(pdf_file):
                         
                         extracted_data.append([nomor, nama_barang, harga_jual])
     
+    # Pastikan semua nomor urut terbaca
     df = pd.DataFrame(extracted_data, columns=["No.", "Nama Barang Kena Pajak / Jasa Kena Pajak", "Harga Jual (Rp)"])
+    df = df.sort_values(by=["No."]).reset_index(drop=True)  # Pastikan urutan nomor benar
     return df
 
 def main():

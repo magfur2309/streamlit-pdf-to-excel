@@ -5,6 +5,7 @@ import pandas as pd
 def extract_data_from_pdf(pdf_file):
     extracted_data = []
     last_nomor = None  # Menyimpan nomor terakhir untuk deteksi halaman terpisah
+    pending_entry = None  # Menyimpan data yang mungkin terpotong di halaman
     
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
@@ -21,13 +22,25 @@ def extract_data_from_pdf(pdf_file):
                         except ValueError:
                             harga_jual = None
                         
+                        # Jika ditemukan data terpotong dari halaman sebelumnya, gabungkan
+                        if pending_entry and nomor is None:
+                            pending_entry[1] += " " + nama_barang  # Gabungkan deskripsi barang
+                            pending_entry[2] = harga_jual  # Perbarui harga jika ada
+                            extracted_data.append(pending_entry)
+                            pending_entry = None  # Hapus status pending
+                            continue
+                        
                         # Jika nomor kosong tetapi nama barang ada, anggap ini lanjutan halaman sebelumnya
                         if nomor is None and last_nomor is not None:
                             nomor = last_nomor
                         else:
                             last_nomor = nomor  # Simpan nomor terakhir yang valid
                         
-                        extracted_data.append([nomor, nama_barang, harga_jual])
+                        # Simpan data, tetapi jika nama barang tidak lengkap, tandai sebagai pending
+                        if not nama_barang.strip():
+                            pending_entry = [nomor, nama_barang, harga_jual]
+                        else:
+                            extracted_data.append([nomor, nama_barang, harga_jual])
     
     # Konversi ke DataFrame
     df = pd.DataFrame(extracted_data, columns=["No.", "Nama Barang Kena Pajak / Jasa Kena Pajak", "Harga Jual (Rp)"])

@@ -2,17 +2,17 @@ import streamlit as st
 import fitz  # PyMuPDF
 import pandas as pd
 import re
+from io import BytesIO
 
-def extract_invoice_data(pdf_path):
-    doc = fitz.open(pdf_path)
+# Fungsi untuk ekstrak data dari PDF
+def extract_invoice_data(pdf_file):
+    doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
     invoice_data = []
-    
-    pattern = re.compile(r"(\\d+)\\s+600600\\s+([\\w\\s,.-]+)SJ: ([\\w\\d]+), Tanggal:\\s+(\\d{2}/\\d{2}/\\d{4})\\s+Rp ([\\d,.]+) x ([\\d,.]+) Kilogram\\s+Potongan Harga = Rp ([\\d,.]+)\\s+PPnBM \\(0,00%\\) = Rp ([\\d,.]+)\\s+([\\d,.]+)")
+    pattern = re.compile(r"(\d+)\s+600600\s+([\w\s,.-]+)SJ: ([\w\d]+), Tanggal:\s+(\d{2}/\d{2}/\d{4})\s+Rp ([\d,.]+) x ([\d,.]+) Kilogram\s+Potongan Harga = Rp ([\d,.]+)\s+PPnBM \(0,00%\) = Rp ([\d,.]+)\s+([\d,.]+)")
     
     for page in doc:
         text = page.get_text("text")
         matches = pattern.findall(text)
-        
         for match in matches:
             invoice_data.append({
                 "No": int(match[0]),
@@ -29,20 +29,26 @@ def extract_invoice_data(pdf_path):
     
     return pd.DataFrame(invoice_data)
 
+# Streamlit UI
 st.title("Ekstraksi Data Faktur Pajak dari PDF")
-uploaded_file = st.file_uploader("Upload file PDF", type="pdf")
+st.write("Unggah file PDF untuk mengekstrak detail transaksi.")
+
+uploaded_file = st.file_uploader("Pilih file PDF", type="pdf")
 
 if uploaded_file is not None:
-    with open("temp.pdf", "wb") as f:
-        f.write(uploaded_file.getbuffer())
+    st.success("File berhasil diunggah!")
+    
+    # Ekstrak data
+    df = extract_invoice_data(uploaded_file)
 
-    df_result = extract_invoice_data("temp.pdf")
-    st.write(df_result)
+    # Tampilkan hasil dalam tabel
+    st.dataframe(df)
 
-    # Tombol untuk download hasil sebagai Excel
-    st.download_button(
-        label="Download Excel",
-        data=df_result.to_csv(index=False),
-        file_name="Hasil_Ekstraksi.csv",
-        mime="text/csv"
-    )
+    # Tambahkan opsi untuk mengunduh sebagai Excel
+    output = BytesIO()
+    df.to_excel(output, index=False, engine="openpyxl")
+    output.seek(0)
+    st.download_button(label="Unduh sebagai Excel",
+                       data=output,
+                       file_name="Hasil_Ekstraksi.xlsx",
+                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

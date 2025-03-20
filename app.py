@@ -1,48 +1,65 @@
 import streamlit as st
-import pdfplumber
+import fitz  # PyMuPDF
 import pandas as pd
-import re
+from io import BytesIO
 
-def extract_transactions(pdf_path):
-    transactions = []
+def extract_text_from_pdf(pdf_file):
+    """Ekstrak teks dari PDF."""
+    doc = fitz.open(pdf_file)
+    text = ""
+    for page in doc:
+        text += page.get_text("text") + "\n"
+    return text
+
+def parse_invoice_data(text):
+    """Parsing data transaksi dari teks faktur pajak."""
+    lines = text.split("\n")
+    transaksi = []
     
-    with pdfplumber.open(pdf_path) as pdf:
-        for page in pdf.pages:
-            text = page.extract_text()
-            if text:
-                lines = text.split("\n")
-                for line in lines:
-                    match = re.match(r"(\d+)\s+(\d+)\s+([A-Z0-9 ,.-]+)\s+Rp ([\d.,]+) x ([\d.,]+) Kilogram\s+Rp ([\d.,]+)", line)
-                    if match:
-                        transactions.append({
-                            "No": match.group(1),
-                            "Kode Barang": match.group(2),
-                            "Nama Barang": match.group(3).strip(),
-                            "Harga per Kg (Rp)": match.group(4),
-                            "Jumlah (Kg)": match.group(5),
-                            "Total Harga (Rp)": match.group(6),
-                        })
+    for i, line in enumerate(lines):
+        parts = line.split()
+        if len(parts) > 5 and parts[0].isdigit():
+            try:
+                no = int(parts[0])
+                kode_barang = parts[1]
+                nama_barang = " ".join(parts[2:-4])
+                berat = float(parts[-4].replace(",", ""))
+                harga_kg = float(parts[-3].replace(",", ""))
+                total_harga = float(parts[-1].replace(",", ""))
+                transaksi.append((no, kode_barang, nama_barang, berat, harga_kg, total_harga))
+            except ValueError:
+                continue
     
-    return pd.DataFrame(transactions)
+    return pd.DataFrame(transaksi, columns=["No", "Kode Barang", "Nama Barang", "Berat (Kg)", "Harga per Kg (Rp)", "Total Harga (Rp)"])
 
 def main():
-    st.title("Ekstrak Detail Transaksi dari PDF")
+    st.title("Ekstraksi Data Faktur Pajak dari PDF")
+    
     uploaded_file = st.file_uploader("Unggah file PDF", type=["pdf"])
     
     if uploaded_file is not None:
-        with open("temp.pdf", "wb") as f:
-            f.write(uploaded_file.read())
-        
-        df = extract_transactions("temp.pdf")
-        
-        if not df.empty:
-            st.write("### Data Transaksi")
-            st.dataframe(df)
+        with st.spinner("Mengekstrak data..."):
+            text = extract_text_from_pdf(uploaded_file)
+            df = parse_invoice_data(text)
             
-            csv = df.to_csv(index=False).encode("utf-8")
-            st.download_button("Unduh CSV", data=csv, file_name="transaksi.csv", mime="text/csv")
-        else:
-            st.error("Tidak ditemukan data transaksi dalam PDF.")
+            if not df.empty:
+                st.success("Ekstraksi berhasil!")
+                st.dataframe(df)
+                
+                # Konversi DataFrame ke file Excel
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    df.to_excel(writer, index=False, sheet_name='Data Transaksi')
+                output.seek(0)
+                
+                st.download_button(
+                    label="📥 Unduh Data dalam Excel",
+                    data=output,
+                    file_name="Faktur_Transaksi.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            else:
+                st.error("Gagal mengekstrak data dari PDF. Periksa format file.")
 
 if __name__ == "__main__":
     main()

@@ -11,12 +11,11 @@ def extract_text_from_pdf(uploaded_file):
             text += page.get_text("text") + "\n"
     return text
 
-
 def parse_invoice_data(text):
     """Parsing data transaksi dari teks faktur pajak."""
     lines = text.split("\n")
     transaksi = []
-    
+
     for i, line in enumerate(lines):
         parts = line.split()
         if len(parts) > 5 and parts[0].isdigit():
@@ -30,35 +29,30 @@ def parse_invoice_data(text):
                 transaksi.append((no, kode_barang, nama_barang, berat, harga_kg, total_harga))
             except ValueError:
                 continue
-    
+
     return pd.DataFrame(transaksi, columns=["No", "Kode Barang", "Nama Barang", "Berat (Kg)", "Harga per Kg (Rp)", "Total Harga (Rp)"])
 
 def main():
     st.title("Ekstraksi Data Faktur Pajak dari PDF")
-    
-    uploaded_file = st.file_uploader("Unggah file PDF", type=["pdf"])
-    
-if uploaded_file is not None:
-    try:
-        text = extract_text_from_pdf(uploaded_file)
-        df = parse_invoice_data(text)
-        st.dataframe(df)
-    except Exception as e:
-        st.error(f"Terjadi kesalahan saat membaca PDF: {str(e)}")
-else:
-    st.warning("Silakan unggah file PDF terlebih dahulu.")
 
-            
+    uploaded_file = st.file_uploader("Unggah file PDF", type=["pdf"])
+
+    if uploaded_file is not None:
+        try:
+            with st.spinner("Mengekstrak data..."):
+                text = extract_text_from_pdf(uploaded_file)
+                df = parse_invoice_data(text)
+
             if not df.empty:
                 st.success("Ekstraksi berhasil!")
                 st.dataframe(df)
-                
+
                 # Konversi DataFrame ke file Excel
                 output = BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     df.to_excel(writer, index=False, sheet_name='Data Transaksi')
                 output.seek(0)
-                
+
                 st.download_button(
                     label="📥 Unduh Data dalam Excel",
                     data=output,
@@ -67,6 +61,9 @@ else:
                 )
             else:
                 st.error("Gagal mengekstrak data dari PDF. Periksa format file.")
+
+        except Exception as e:
+            st.error(f"Terjadi kesalahan: {str(e)}")
 
 if __name__ == "__main__":
     main()

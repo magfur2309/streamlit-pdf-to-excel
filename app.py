@@ -3,13 +3,14 @@ import fitz  # PyMuPDF
 import pandas as pd
 from io import BytesIO
 
-def extract_text_from_pdf(pdf_file):
-    """Ekstrak teks dari PDF."""
-    doc = fitz.open(pdf_file)
-    text = ""
-    for page in doc:
-        text += page.get_text("text") + "\n"
+def extract_text_from_pdf(uploaded_file):
+    """Ekstrak teks dari PDF menggunakan PyMuPDF."""
+    with fitz.open(stream=uploaded_file.read(), filetype="pdf") as doc:
+        text = ""
+        for page in doc:
+            text += page.get_text("text") + "\n"
     return text
+
 
 def parse_invoice_data(text):
     """Parsing data transaksi dari teks faktur pajak."""
@@ -37,10 +38,16 @@ def main():
     
     uploaded_file = st.file_uploader("Unggah file PDF", type=["pdf"])
     
-    if uploaded_file is not None:
-        with st.spinner("Mengekstrak data..."):
-            text = extract_text_from_pdf(uploaded_file)
-            df = parse_invoice_data(text)
+if uploaded_file is not None:
+    try:
+        text = extract_text_from_pdf(uploaded_file)
+        df = parse_invoice_data(text)
+        st.dataframe(df)
+    except Exception as e:
+        st.error(f"Terjadi kesalahan saat membaca PDF: {str(e)}")
+else:
+    st.warning("Silakan unggah file PDF terlebih dahulu.")
+
             
             if not df.empty:
                 st.success("Ekstraksi berhasil!")

@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import pdfplumber
-import re
 from io import BytesIO
 
 def extract_data_from_pdf(pdf_file):
@@ -10,20 +9,17 @@ def extract_data_from_pdf(pdf_file):
     
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
-            text = page.extract_text()
-            if text:
-                lines = text.split('\n')
-                for line in lines:
-                    if "Nama Barang Kena Pajak / Jasa Kena Pajak" in line:
+            table = page.extract_table()
+            if table:
+                for row in table:
+                    if any("Nama Barang Kena Pajak" in str(cell) for cell in row if cell):
                         header_found = True
                         continue  # Lewati baris header
                     
-                    if header_found:
-                        match = re.match(r"(\d+)\s+(.+?)\s+Rp[\d,.]+", line)
-                        if match:
-                            no_urut = match.group(1)
-                            nama_barang = match.group(2).strip()
-                            extracted_data.append([no_urut, nama_barang])
+                    if header_found and len(row) >= 2:
+                        no_urut = row[0].strip()
+                        nama_barang = row[1].strip()
+                        extracted_data.append([no_urut, nama_barang])
     
     return extracted_data
 

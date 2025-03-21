@@ -6,27 +6,15 @@ from io import BytesIO
 
 def extract_data_from_pdf(pdf_file):
     extracted_data = []
-    current_entry = None  # Untuk menyimpan entri sementara
-
+    
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
             if text:
+                st.text(f"Debugging: Isi Halaman PDF\n{text}")  # Menampilkan isi PDF di Streamlit
                 lines = text.split('\n')
                 for line in lines:
-                    match = re.match(r"^(\d+)\s+Rp ([\d.,]+)(.*?)$", line)
-                    if match:
-                        # Jika menemukan entri baru, simpan entri sebelumnya dulu
-                        if current_entry:
-                            extracted_data.append(current_entry)
-                        # Mulai entri baru
-                        no_urut = match.group(1)
-                        nama_barang = f"Rp {match.group(2)}{match.group(3)}"
-                        current_entry = [no_urut, nama_barang]
-                    else:
-                        # Jika tidak cocok dengan pola utama, kemungkinan lanjutan dari baris sebelumnya
-                        if current_entry:
-                            current_entry[1] += f" {line}"
+                    st.text(f"Baris Ditemukan: {line}")  # Menampilkan setiap baris untuk analisis
 
     # Tambahkan entri terakhir jika ada
     if current_entry:

@@ -13,10 +13,10 @@ def extract_data_from_pdf(pdf_file):
             if text:
                 lines = text.split('\n')
                 for line in lines:
-                    match = re.match(r"(\d+)\s+[\d,.]+\s+Rp[\d,.]+.*?([A-Za-z\s-]+)", line)
+                    match = re.match(r"(\d+)\s+000000\s+(.+)", line)
                     if match:
                         no_urut = match.group(1)
-                        nama_barang = match.group(2).strip()
+                        nama_barang = match.group(2)
                         extracted_data.append([no_urut, nama_barang])
     
     return extracted_data

@@ -1,56 +1,47 @@
-import PyPDF2
+import streamlit as st
 import pandas as pd
+import pdfplumber
+import re
+from io import BytesIO
 
-# Fungsi untuk membaca data dari file PDF
-def extract_data_from_pdf(pdf_file_path):
-    # Membuka file PDF
-    with open(pdf_file_path, 'rb') as file:
-        reader = PyPDF2.PdfReader(file)
-        text = ""
-        
-        # Menyusun teks dari setiap halaman dalam PDF
-        for page_num in range(len(reader.pages)):
-            page = reader.pages[page_num]
-            text += page.extract_text()
+def extract_data_from_pdf(pdf_file):
+    extracted_data = []
     
-    return text
-
-# Fungsi untuk mengonversi teks ke format tabel
-def convert_to_table(text):
-    # Pisahkan data berdasarkan nomor urut dan barang
-    lines = text.splitlines()
-    data = []
-    item_start = False
-    for line in lines:
-        # Jika menemukan bagian dengan data barang, mulai proses pengambilan data
-        if line.strip().startswith('No.'):
-            item_start = True
-            continue
-        if item_start:
-            parts = line.split(" - ")
-            if len(parts) > 1:
-                no_urut = parts[0].strip()
-                barang = " - ".join(parts[1:]).strip()
-                data.append([no_urut, barang])
+    with pdfplumber.open(pdf_file) as pdf:
+        for page in pdf.pages:
+            text = page.extract_text()
+            if text:
+                lines = text.split('\n')
+                for line in lines:
+                    match = re.match(r"(\d+)\s+000000\s+(.+)", line)
+                    if match:
+                        no_urut = match.group(1)
+                        nama_barang = match.group(2)
+                        extracted_data.append([no_urut, nama_barang])
     
-    # Membuat dataframe menggunakan pandas
-    df = pd.DataFrame(data, columns=["No Urut", "Barang"])
-    return df
+    return extracted_data
 
-# Fungsi utama untuk mengonversi PDF ke tabel
-def convert_pdf_to_table(pdf_file_path):
-    text = extract_data_from_pdf(pdf_file_path)
-    table = convert_to_table(text)
-    return table
+def generate_download_link(df):
+    output = BytesIO()
+    df.to_csv(output, index=False)
+    output.seek(0)
+    return output
 
-# Path file PDF yang akan diproses
-pdf_file_path = 'OutputTaxInvoice-8316ab33-870d-4ba3-b65a-18a7dcaa85d2-0960088649086000-04002500037469724--.pdf'
+def main():
+    st.title("Invoice Report Generator")
+    
+    uploaded_file = st.file_uploader("Upload Faktur Pajak (PDF)", type=["pdf"])
+    
+    if uploaded_file:
+        with st.spinner("Mengekstrak data..."):
+            data = extract_data_from_pdf(uploaded_file)
+            df = pd.DataFrame(data, columns=["No. Urut", "Nama Barang"])
+            
+            st.write("### Hasil Ekstraksi Data")
+            st.dataframe(df)
+            
+            csv = generate_download_link(df)
+            st.download_button("Download Laporan CSV", csv, "laporan_invoice.csv", "text/csv")
 
-# Melakukan konversi
-table = convert_pdf_to_table(pdf_file_path)
-
-# Menampilkan hasil konversi
-print(table)
-
-# Jika ingin menyimpan ke file CSV
-table.to_csv('output_barang.csv', index=False)
+if __name__ == "__main__":
+    main()

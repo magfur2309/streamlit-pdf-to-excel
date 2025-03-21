@@ -6,6 +6,7 @@ from io import BytesIO
 
 def extract_data_from_pdf(pdf_file):
     extracted_data = []
+    header_found = False
     
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
@@ -13,11 +14,16 @@ def extract_data_from_pdf(pdf_file):
             if text:
                 lines = text.split('\n')
                 for line in lines:
-                    match = re.match(r"(\d+)\s+000000\s+(.+)", line)
-                    if match:
-                        no_urut = match.group(1)
-                        nama_barang = match.group(2)
-                        extracted_data.append([no_urut, nama_barang])
+                    if "Nama Barang Kena Pajak / Jasa Kena Pajak" in line:
+                        header_found = True
+                        continue  # Lewati baris header
+                    
+                    if header_found:
+                        match = re.match(r"(\d+)\s+(.+?)\s+Rp[\d,.]+", line)
+                        if match:
+                            no_urut = match.group(1)
+                            nama_barang = match.group(2).strip()
+                            extracted_data.append([no_urut, nama_barang])
     
     return extracted_data
 

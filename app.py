@@ -17,8 +17,8 @@ def extract_data_from_pdf(pdf_file):
                         continue  # Lewati baris header
                     
                     if header_found and len(row) >= 2:
-                        no_urut = row[0].strip()
-                        nama_barang = row[1].strip()
+                        no_urut = row[0].strip() if row[0] else ""
+                        nama_barang = row[1].strip() if row[1] else ""
                         extracted_data.append([no_urut, nama_barang])
     
     return extracted_data
@@ -35,15 +35,21 @@ def main():
     uploaded_file = st.file_uploader("Upload Faktur Pajak (PDF)", type=["pdf"])
     
     if uploaded_file:
-        with st.spinner("Mengekstrak data..."):
-            data = extract_data_from_pdf(uploaded_file)
-            df = pd.DataFrame(data, columns=["No. Urut", "Nama Barang"])
-            
-            st.write("### Hasil Ekstraksi Data")
-            st.dataframe(df)
-            
-            csv = generate_download_link(df)
-            st.download_button("Download Laporan CSV", csv, "laporan_invoice.csv", "text/csv")
+        try:
+            with st.spinner("Mengekstrak data..."):
+                data = extract_data_from_pdf(uploaded_file)
+                df = pd.DataFrame(data, columns=["No. Urut", "Nama Barang"])
+                
+                if df.empty:
+                    st.warning("Tidak ada data yang diekstrak. Pastikan format tabel dalam PDF sudah benar.")
+                else:
+                    st.write("### Hasil Ekstraksi Data")
+                    st.dataframe(df)
+                    
+                    csv = generate_download_link(df)
+                    st.download_button("Download Laporan CSV", csv, "laporan_invoice.csv", "text/csv")
+        except Exception as e:
+            st.error(f"Terjadi kesalahan saat ekstraksi: {e}")
 
 if __name__ == "__main__":
     main()
